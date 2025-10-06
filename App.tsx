@@ -1,51 +1,37 @@
 
-
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import {
-  commissions as initialCommissions,
-  commissionDetails as initialCommissionDetails,
-  adminData as initialAdminData
-} from './data';
+import * as api from './api';
 import Dashboard from './components/Dashboard';
 import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
 import Modal from './components/Modal';
 import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord } from './types';
+import { adminData as initialAdminData } from './data';
 
 type View = 'dashboard' | 'detail' | 'admin';
 
 const COLORS = ['#14b8a6', '#f97316', '#ef4444', '#8b5cf6', '#3b82f6', '#f43f5e', '#06b6d4', '#d946ef'];
 const BACKUP_STORAGE_KEY = 'urbanisme_backups';
 
-const getDayOfWeekCatalan = (dateString: string): string => {
-    const parts = dateString.split('/');
-    if (parts.length !== 3) return '';
-    
-    const [day, month, year] = parts.map(Number);
-    if (isNaN(day) || isNaN(month) || isNaN(year)) {
-        return ''; 
-    }
-    const date = new Date(year, month - 1, day);
-    const days = ['diumenge', 'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte'];
-    return days[date.getDay()];
-};
-
 const App: React.FC = () => {
   const [view, setView] = useState<View>('dashboard');
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedCommission, setSelectedCommission] = useState<CommissionSummary | null>(null);
-  const [commissionDetails, setCommissionDetails] = useState<CommissionDetail[]>(initialCommissionDetails);
-  const [commissions, setCommissions] = useState<CommissionSummary[]>(initialCommissions);
+  
+  // Initialize state with empty data structures
+  const [commissionDetails, setCommissionDetails] = useState<CommissionDetail[]>([]);
+  const [commissions, setCommissions] = useState<CommissionSummary[]>([]);
   const [adminData, setAdminData] = useState<AdminData>(initialAdminData);
+
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: undefined as (() => void) | undefined });
   const [backups, setBackups] = useState<BackupRecord[]>([]);
 
   useEffect(() => {
+    // Load local backups from localStorage on mount
     try {
         const savedBackups = localStorage.getItem(BACKUP_STORAGE_KEY);
         if (savedBackups) {
             const parsedBackups = JSON.parse(savedBackups);
-            // Sort by timestamp descending
             parsedBackups.sort((a: BackupRecord, b: BackupRecord) => b.timestamp - a.timestamp);
             setBackups(parsedBackups);
         }
@@ -53,6 +39,23 @@ const App: React.FC = () => {
         console.error("Failed to load backups from localStorage", error);
         setBackups([]);
     }
+
+    // Fetch main application data from the API
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const data = await api.getApplicationData();
+            setCommissions(data.commissions);
+            setCommissionDetails(data.commissionDetails);
+            setAdminData(data.adminData);
+        } catch (error) {
+            console.error("Failed to load application data", error);
+            showInfoModal('Error de Càrrega', 'No s\'han pogut carregar les dades de l\'aplicació.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchData();
   }, []);
 
   const availableYears = useMemo(() => 
@@ -60,6 +63,13 @@ const App: React.FC = () => {
   , [commissions]);
 
   const [selectedYear, setSelectedYear] = useState<string>(availableYears[0] || new Date().getFullYear().toString());
+  
+  useEffect(() => {
+      if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+          setSelectedYear(availableYears[0]);
+      }
+  }, [availableYears, selectedYear]);
+
 
   const handleYearChange = (year: string) => {
     setSelectedYear(year);
@@ -73,7 +83,7 @@ const App: React.FC = () => {
     setModalState({ isOpen: false, title: '', message: '', onConfirm: undefined });
   };
 
-  const handleGenerateNextYearCommissions = useCallback(() => {
+  const handleGenerateNextYearCommissions = useCallback(async () => {
     const lastYear = Math.max(...commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10)));
     const nextYear = lastYear + 1;
     
@@ -81,39 +91,41 @@ const App: React.FC = () => {
       isOpen: true,
       title: `Generar Comissions per a ${nextYear}`,
       message: `Estàs segur que vols generar automàticament el calendari de comissions per a l'any ${nextYear}?`,
-      onConfirm: () => {
-        const newCommissions: CommissionSummary[] = [];
-        let lastActaNum = Math.max(...commissions.map(c => c.numActa));
-        
-        const date = new Date(nextYear, 0, 1);
-        while (date.getDay() !== 3) {
-          date.setDate(date.getDate() + 1);
+      onConfirm: async () => {
+        try {
+            const newCommissions = await api.generateNextYearCommissions();
+            const fullData = await api.getApplicationData();
+            setCommissions(fullData.commissions);
+            showInfoModal('Èxit', `S'han generat ${newCommissions.length} comissions per a l'any ${nextYear}.`);
+        } catch (error) {
+            console.error('Failed to generate commissions', error);
+            showInfoModal('Error', 'No s\'han pogut generar les comissions.');
         }
-        
-        while (date.getFullYear() === nextYear) {
-          lastActaNum++;
-          const newCommission: CommissionSummary = {
-            numActa: lastActaNum,
-            numTemes: 0,
-            diaSetmana: 'dimecres',
-            dataComissio: date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'numeric', year: 'numeric'}),
-            avisEmail: false,
-            dataEmail: null,
-            estat: 'Oberta'
-          };
-          newCommissions.push(newCommission);
-          date.setDate(date.getDate() + 14);
-        }
-        
-        setCommissions(prev => [...prev, ...newCommissions]);
-        showInfoModal('Èxit', `S'han generat ${newCommissions.length} comissions per a l'any ${nextYear}.`);
       }
     });
   }, [commissions]);
 
-  const handleSelectCommission = useCallback((commission: CommissionSummary) => {
-    setSelectedCommission(commission);
-    setView('detail');
+  const handleSelectCommission = useCallback(async (commission: CommissionSummary) => {
+      try {
+        const detail = await api.getCommissionDetail(commission.numActa);
+        if (detail) {
+            // Add or update the detail in our local state
+            setCommissionDetails(prev => {
+                const exists = prev.some(d => d.numActa === detail.numActa);
+                if (exists) {
+                    return prev.map(d => d.numActa === detail.numActa ? detail : d);
+                }
+                return [...prev, detail];
+            });
+            setSelectedCommission(commission);
+            setView('detail');
+        } else {
+             showInfoModal('Error', `No s'han trobat detalls per a la comissió ${commission.numActa}.`);
+        }
+      } catch (error) {
+        console.error("Failed to fetch commission details", error);
+        showInfoModal('Error', 'No s\'han pogut carregar els detalls de la comissió.');
+      }
   }, []);
 
   const handleBackToDashboard = useCallback(() => {
@@ -126,206 +138,162 @@ const App: React.FC = () => {
   }, []);
 
   const getCommissionDetail = (actaId: number): CommissionDetail | undefined => {
-    const detail = commissionDetails.find(detail => detail.numActa === actaId);
-    if (detail) {
-        return detail;
-    }
-    const commissionSummary = commissions.find(c => c.numActa === actaId);
-    if (commissionSummary && commissionSummary.estat === 'Oberta') {
-        const newDetail: CommissionDetail = {
-            numActa: actaId,
-            sessio: commissionSummary.dataComissio,
-            dataActual: new Date().toLocaleDateString('ca-ES'),
-            hora: '9:00:00',
-            estat: 'Oberta',
-            mitja: 'Via telemàtica',
-            expedientsCount: 0,
-            expedients: [],
-        };
-        setCommissionDetails(prevDetails => [...prevDetails, newDetail]);
-        return newDetail;
-    }
-    return undefined;
+    return commissionDetails.find(detail => detail.numActa === actaId);
   };
 
-  const handleSaveCommissionDetails = (updatedDetail: CommissionDetail) => {
-    setCommissionDetails(prevDetails => {
-        const newDetails = prevDetails.map(detail =>
-            detail.numActa === updatedDetail.numActa ? updatedDetail : detail
-        );
-        if (!prevDetails.some(d => d.numActa === updatedDetail.numActa)) {
-            newDetails.push(updatedDetail);
-        }
-        return newDetails;
-    });
-     setCommissions(prevSummaries => prevSummaries.map(summary => 
-        summary.numActa === updatedDetail.numActa ? { 
-          ...summary, 
-          numTemes: updatedDetail.expedients.length,
-          dataComissio: updatedDetail.sessio,
-          estat: updatedDetail.estat,
-          diaSetmana: getDayOfWeekCatalan(updatedDetail.sessio),
-        } : summary
-      ));
+  const handleSaveCommissionDetails = async (updatedDetail: CommissionDetail) => {
+    try {
+        const savedDetail = await api.saveCommissionDetails(updatedDetail);
+        
+        // Optimistic update + fetching the truth from API response
+        setCommissionDetails(prevDetails => {
+            const newDetails = prevDetails.map(detail =>
+                detail.numActa === savedDetail.numActa ? savedDetail : detail
+            );
+            if (!prevDetails.some(d => d.numActa === savedDetail.numActa)) {
+                newDetails.push(savedDetail);
+            }
+            return newDetails;
+        });
+
+         setCommissions(prevSummaries => prevSummaries.map(summary => 
+            summary.numActa === savedDetail.numActa ? { 
+              ...summary, 
+              numTemes: savedDetail.expedients.length,
+              dataComissio: savedDetail.sessio,
+              estat: savedDetail.estat,
+              diaSetmana: api.getDayOfWeekCatalan(savedDetail.sessio),
+            } : summary
+          ));
+        showInfoModal('Guardat', 'Els canvis s\'han guardat correctament.');
+    } catch (error) {
+        console.error("Failed to save commission details", error);
+        showInfoModal('Error', 'No s\'han pogut guardar els canvis.');
+    }
   };
 
-  const handleUpdateCommissionSummary = (
+  const handleUpdateCommissionSummary = async (
     numActa: number,
     dataComissio: string,
     field: keyof CommissionSummary,
     value: any
   ) => {
-    setCommissions(prevCommissions =>
-      prevCommissions.map(c => {
-        if (c.numActa === numActa && c.dataComissio === dataComissio) {
-          const updatedCommission = { ...c, [field]: value };
-          if (field === 'avisEmail' && !value) {
-            updatedCommission.dataEmail = null;
-          }
-          return updatedCommission;
-        }
-        return c;
-      })
-    );
-  };
-
-  const handleMarkCommissionAsSent = useCallback((numActa: number, dataComissio: string) => {
-    const today = new Date();
-    const formattedDate = today.toLocaleDateString('ca-ES', {
-        day: 'numeric',
-        month: 'numeric',
-        year: 'numeric'
-    });
-
-    setCommissions(prevCommissions =>
-        prevCommissions.map(c => {
+      try {
+        await api.updateCommissionSummary(numActa, dataComissio, field, value);
+        setCommissions(prev => prev.map(c => {
             if (c.numActa === numActa && c.dataComissio === dataComissio) {
-                return { ...c, avisEmail: true, dataEmail: formattedDate };
+                const updated = { ...c, [field]: value };
+                if (field === 'avisEmail' && !value) {
+                    updated.dataEmail = null;
+                }
+                return updated;
             }
             return c;
-        })
-    );
+        }));
+      } catch(error) {
+          console.error("Failed to update commission summary", error);
+          showInfoModal('Error', 'No s\'ha pogut actualitzar la comissió.');
+      }
+  };
+
+  const handleMarkCommissionAsSent = useCallback(async (numActa: number, dataComissio: string) => {
+    try {
+        const updatedCommission = await api.markCommissionAsSent(numActa, dataComissio);
+        setCommissions(prev => prev.map(c => c.numActa === numActa && c.dataComissio === dataComissio ? updatedCommission : c));
+    } catch(error) {
+        console.error("Failed to mark commission as sent", error);
+        showInfoModal('Error', 'No s\'ha pogut realitzar l\'acció.');
+    }
   }, []);
 
-  const handleUpdateAdminItem = (list: keyof AdminData, id: string, name: string, email?: string) => {
-    setAdminData((prev: AdminData) => {
-      if (list === 'users') {
-        return prev;
+  const handleUpdateAdminItem = async (list: keyof AdminData, id: string, name: string, email?: string) => {
+    if (list === 'users') return;
+    try {
+        await api.updateAdminItem(list, id, name, email);
+        setAdminData(prev => ({
+            ...prev,
+            [list]: (prev[list] as AdminList[]).map(item => item.id === id ? { ...item, name, email } : item)
+        }));
+    } catch(error) {
+        console.error(`Failed to update item in ${list}`, error);
+        showInfoModal('Error', 'No s\'ha pogut actualitzar l\'element.');
+    }
+  };
+
+  const handleDeleteAdminItem = async (list: keyof AdminData, id: string) => {
+    if (list === 'users') return;
+     try {
+        await api.deleteAdminItem(list, id);
+        setAdminData(prev => ({
+            ...prev,
+            [list]: (prev[list] as AdminList[]).filter(item => item.id !== id)
+        }));
+    } catch(error) {
+        console.error(`Failed to delete item from ${list}`, error);
+        showInfoModal('Error', 'No s\'ha pogut eliminar l\'element.');
+    }
+  };
+
+  const handleAddAdminItem = async (list: keyof AdminData, name: string, email?: string) => {
+    if (list === 'users') return;
+    try {
+        const newItem = await api.addAdminItem(list, name, email);
+        setAdminData(prev => ({
+            ...prev,
+            [list]: [...(prev[list] as AdminList[]), newItem]
+        }));
+    } catch(error) {
+        console.error(`Failed to add item to ${list}`, error);
+        showInfoModal('Error', 'No s\'ha pogut afegir l\'element.');
+    }
+  };
+
+  const handleUpdateUser = async (id: string, name: string, email: string, password?: string) => {
+      try {
+        await api.updateUser(id, name, email, password);
+        setAdminData(prev => ({
+            ...prev,
+            users: prev.users.map(user => user.id === id ? { ...user, name, email } : user)
+        }));
+      } catch(error) {
+          console.error("Failed to update user", error);
+          showInfoModal('Error', 'No s\'ha pogut actualitzar l\'usuari.');
       }
-      
-      const updatedList = (prev[list] as AdminList[]).map(item => 
-        item.id === id ? { ...item, name, email } : item
-      );
-
-      return {
-        ...prev,
-        [list]: updatedList
-      };
-    });
   };
-
-  const handleDeleteAdminItem = (list: keyof AdminData, id: string) => {
-    setAdminData((prev: AdminData) => {
-      if (list === 'users') {
-        return prev;
+  const handleDeleteUser = async (id: string) => {
+      try {
+          await api.deleteUser(id);
+          setAdminData(prev => ({
+              ...prev,
+              users: prev.users.filter(user => user.id !== id)
+          }));
+      } catch(error) {
+          console.error("Failed to delete user", error);
+          showInfoModal('Error', 'No s\'ha pogut eliminar l\'usuari.');
       }
-      return {
-        ...prev,
-        [list]: (prev[list] as AdminList[]).filter(item => item.id !== id),
-      };
-    });
   };
-
-  const handleAddAdminItem = (list: keyof AdminData, name: string, email?: string) => {
-    setAdminData((prev: AdminData) => {
-      if (list === 'users') {
-        return prev;
+  const handleAddUser = async (name: string, email: string, password?: string) => {
+      try {
+        const newUser = await api.addUser(name, email, password);
+        setAdminData(prev => ({...prev, users: [...prev.users, newUser]}));
+      } catch(error) {
+          console.error("Failed to add user", error);
+          showInfoModal('Error', 'No s\'ha pogut afegir l\'usuari.');
       }
-      const newItem: AdminList = {
-        id: `new-${Date.now()}`,
-        name,
-        email: email || '',
-      };
-      return {
-        ...prev,
-        [list]: [...(prev[list] as AdminList[]), newItem],
-      };
-    });
   };
 
-  const handleUpdateUser = (id: string, name: string, email: string, password?: string) => {
-      setAdminData(prev => ({
-          ...prev,
-          users: prev.users.map(user => {
-              if (user.id === id) {
-                  const updatedUser = { ...user, name, email };
-                  if (password) {
-                      (updatedUser as User).password = password;
-                  }
-                  return updatedUser;
-              }
-              return user;
-          })
-      }));
-  };
-  const handleDeleteUser = (id: string) => {
-      setAdminData(prev => ({
-          ...prev,
-          users: prev.users.filter(user => user.id !== id)
-      }));
-  };
-  const handleAddUser = (name: string, email: string, password?: string) => {
-      const newUser: User = {
-          id: `user-${Date.now()}`,
-          name,
-          email,
-          password,
-      };
-      setAdminData(prev => ({
-          ...prev,
-          users: [...prev.users, newUser]
-      }));
+  const handleImportUsers = async (importedUsers: User[]) => {
+    try {
+        const updatedUsers = await api.importUsers(importedUsers);
+        setAdminData(prev => ({ ...prev, users: updatedUsers }));
+        showInfoModal('Importació completada', 'La llista d\'usuaris s\'ha actualitzat correctament.');
+    } catch(error) {
+        console.error("Failed to import users", error);
+        showInfoModal('Error', 'No s\'ha pogut importar els usuaris.');
+    }
   };
 
-  const handleImportUsers = (importedUsers: User[]) => {
-    setAdminData((prev: AdminData) => {
-        const usersMap = new Map(prev.users.map(u => [u.id, u]));
-        let hasChanges = false;
-        
-        importedUsers.forEach((importedUser: User) => {
-            if (importedUser.id === 'user-master') return;
-
-            const existingUser = usersMap.get(importedUser.id);
-            if (existingUser) {
-                if (existingUser.name !== importedUser.name || existingUser.email !== importedUser.email) {
-                    usersMap.set(importedUser.id, { ...existingUser, name: importedUser.name, email: importedUser.email });
-                    hasChanges = true;
-                }
-            } else {
-                usersMap.set(importedUser.id, {
-                    ...importedUser,
-                    password: 'changeme123'
-                });
-                hasChanges = true;
-            }
-        });
-
-        if (!hasChanges) {
-          return prev;
-        }
-
-        return { ...prev, users: Array.from(usersMap.values()) };
-    });
-    showInfoModal('Importació completada', 'La llista d\'usuaris s\'ha actualitzat correctament.');
-  };
-
-  // --- Data Management Handlers ---
-  const getCurrentState = (): ApplicationData => ({
-    commissions,
-    commissionDetails,
-    adminData,
-  });
-
+  const getCurrentState = (): ApplicationData => ({ commissions, commissionDetails, adminData });
   const loadState = (data: ApplicationData) => {
     setCommissions(data.commissions || []);
     setCommissionDetails(data.commissionDetails || []);
@@ -360,13 +328,19 @@ const App: React.FC = () => {
             isOpen: true,
             title: "Confirmar Importació",
             message: "Estàs segur que vols substituir TOTES les dades actuals per les del fitxer? Aquesta acció no es pot desfer.",
-            onConfirm: () => {
-                loadState(data);
-                showInfoModal('Importació Correcta', 'Les dades s\'han importat i carregat correctament.');
+            onConfirm: async () => {
+                try {
+                    const importedData = await api.importData(data);
+                    loadState(importedData);
+                    showInfoModal('Importació Correcta', 'Les dades s\'han importat i carregat correctament.');
+                } catch (error) {
+                    console.error("Error importing data via API:", error);
+                    showInfoModal('Error d\'Importació', 'No s\'ha pogut desar les dades importades.');
+                }
             }
         });
       } catch (error) {
-        console.error("Error importing data:", error);
+        console.error("Error parsing imported data:", error);
         showInfoModal('Error d\'Importació', 'El fitxer seleccionat no és vàlid o està malmès.');
       }
     };
@@ -487,6 +461,13 @@ const App: React.FC = () => {
     };
   }, [selectedYear, commissions, commissionDetails]);
 
+  if (isLoading) {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <div className="text-xl font-semibold text-gray-700">Carregant dades...</div>
+        </div>
+    );
+  }
 
   const renderView = () => {
     switch (view) {
