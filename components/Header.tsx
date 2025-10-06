@@ -5,10 +5,9 @@ interface HeaderProps {
     onNavigateToAdmin?: () => void;
     onGenerateCommissions?: () => void;
     onShowInfoModal?: (title: string, message: string) => void;
-    onLogout?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onShowInfoModal, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onShowInfoModal }) => {
   return (
     <header className="bg-white/50 backdrop-blur-sm p-4 rounded-xl shadow-md">
       <div className="flex justify-between items-center">
@@ -52,15 +51,6 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
                className="hidden md:inline-flex p-3 bg-gray-200 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
              >
                <AdminIcon />
-             </button>
-           )}
-           {onLogout && (
-             <button
-                onClick={onLogout}
-                title="Tancar Sessió"
-                className="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500"
-             >
-                Tancar Sessió
              </button>
            )}
         </div>

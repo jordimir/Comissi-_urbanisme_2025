@@ -16,7 +16,6 @@ interface DashboardProps {
   availableYears: string[];
   selectedYear: string;
   onYearChange: (year: string) => void;
-  onLogout: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -30,8 +29,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   onShowInfoModal,
   availableYears,
   selectedYear,
-  onYearChange,
-  onLogout
+  onYearChange
 }) => {
   return (
     <div className="space-y-8">
@@ -39,7 +37,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         onNavigateToAdmin={onNavigateToAdmin} 
         onGenerateCommissions={onGenerateCommissions}
         onShowInfoModal={onShowInfoModal} 
-        onLogout={onLogout}
       />
       <main>
         <div className="my-4 flex justify-end items-center space-x-2">
