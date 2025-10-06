@@ -13,9 +13,9 @@ Per utilitzar l'aplicació, necessites crear usuaris a Supabase Auth.
    - **Admin Master**
      - Email: `admin@tossa.cat`
      - Password: `masterpassword`
-   - **Josep Almató**
-     - Email: `jalmato@tossa.cat`
-     - Password: `password123`
+   - **Jordi Mir**
+     - Email: `jmir@tossademar.org`
+     - Password: `Tossa17320`
 
 ### Opció 2: Habilitar el registre públic (opcional)
 
