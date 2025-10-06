@@ -1,0 +1,442 @@
+
+import React, { useState, useRef } from 'react';
+import { AdminData, AdminList, User, BackupRecord } from '../types';
+import { AdminIcon, DownloadIcon, UploadIcon, SaveIcon, RestoreIcon, TrashIcon } from './icons/Icons';
+
+interface AdminListManagerProps {
+  title: string;
+  items: AdminList[];
+  onUpdate: (id: string, name: string, email?: string) => void;
+  onDelete: (id: string) => void;
+  onAdd: (name: string, email?: string) => void;
+  hasEmailField?: boolean;
+}
+
+const AdminListManager: React.FC<AdminListManagerProps> = ({ title, items, onUpdate, onDelete, onAdd, hasEmailField = false }) => {
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemEmail, setNewItemEmail] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [editingEmail, setEditingEmail] = useState('');
+
+  const handleAdd = () => {
+    if (newItemName.trim()) {
+      onAdd(newItemName.trim(), newItemEmail.trim());
+      setNewItemName('');
+      setNewItemEmail('');
+    }
+  };
+
+  const startEditing = (item: AdminList) => {
+    setEditingId(item.id);
+    setEditingName(item.name);
+    setEditingEmail(item.email || '');
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingName('');
+    setEditingEmail('');
+  };
+
+  const saveEdit = (id: string) => {
+    if (editingName.trim()) {
+      onUpdate(id, editingName.trim(), editingEmail.trim());
+      cancelEditing();
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-xl shadow-lg">
+      <h3 className="font-bold text-lg text-gray-700 mb-4">{title}</h3>
+      <div className="space-y-2">
+        {items.map(item => (
+          <div key={item.id} className="p-2 rounded-md hover:bg-gray-50">
+            {editingId === item.id ? (
+              <div className="space-y-2">
+                 <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    placeholder="Nom"
+                />
+                {hasEmailField && (
+                    <input
+                        type="email"
+                        value={editingEmail}
+                        onChange={(e) => setEditingEmail(e.target.value)}
+                        className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="Correu electrònic"
+                    />
+                )}
+                <div className="flex items-center space-x-2">
+                    <button onClick={() => saveEdit(item.id)} className="py-1 px-3 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-green-500">Guardar</button>
+                    <button onClick={cancelEditing} className="py-1 px-3 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400">Cancel·lar</button>
+                </div>
+              </div>
+            ) : (
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-800 font-medium">{item.name}</p>
+                        {hasEmailField && item.email && <p className="text-xs text-gray-500">{item.email}</p>}
+                    </div>
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                        <button onClick={() => startEditing(item)} className="py-1 px-3 text-sm bg-blue-100 text-blue-700 font-semibold rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Editar</button>
+                        <button onClick={() => onDelete(item.id)} className="py-1 px-3 text-sm bg-red-100 text-red-700 font-semibold rounded-md hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500">Eliminar</button>
+                    </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 pt-4 border-t space-y-2">
+        <input
+          type="text"
+          value={newItemName}
+          onChange={(e) => setNewItemName(e.target.value)}
+          placeholder="Nom del nou element"
+          className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+        />
+        {hasEmailField && (
+            <input
+                type="email"
+                value={newItemEmail}
+                onChange={(e) => setNewItemEmail(e.target.value)}
+                placeholder="Correu electrònic (opcional)"
+                className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            />
+        )}
+        <button onClick={handleAdd} className="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">Afegir</button>
+      </div>
+    </div>
+  );
+};
+
+interface UserAdminManagerProps {
+  title: string;
+  items: User[];
+  onUpdate: (id: string, name: string, email: string, password?: string) => void;
+  onDelete: (id: string) => void;
+  onAdd: (name: string, email: string, password?: string) => void;
+  onImport: (users: User[]) => void;
+}
+
+const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpdate, onDelete, onAdd, onImport }) => {
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemEmail, setNewItemEmail] = useState('');
+  const [newItemPassword, setNewItemPassword] = useState('');
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [editingEmail, setEditingEmail] = useState('');
+  const [editingPassword, setEditingPassword] = useState('');
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAdd = () => {
+    if (newItemName.trim() && newItemEmail.trim() && newItemPassword.trim()) {
+      onAdd(newItemName.trim(), newItemEmail.trim(), newItemPassword.trim());
+      setNewItemName('');
+      setNewItemEmail('');
+      setNewItemPassword('');
+    }
+  };
+
+  const startEditing = (item: User) => {
+    setEditingId(item.id);
+    setEditingName(item.name);
+    setEditingEmail(item.email);
+    setEditingPassword('');
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditingName('');
+    setEditingEmail('');
+    setEditingPassword('');
+  };
+
+  const saveEdit = (id: string) => {
+    if (editingName.trim() && editingEmail.trim()) {
+      onUpdate(id, editingName.trim(), editingEmail.trim(), editingPassword.trim() || undefined);
+      cancelEditing();
+    }
+  };
+
+  const handleExport = () => {
+    const usersToExport = items.filter(user => user.id !== 'user-master');
+    const header = "id,name,email\n";
+    const csvContent = usersToExport.map(user => `${user.id},${user.name},${user.email}`).join("\n");
+    const blob = new Blob([header + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "usuaris.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+            if (lines.length < 1) {
+                alert("El fitxer CSV està buit o té un format incorrecte.");
+                return;
+            }
+
+            const header = lines[0].split(',').map(h => h.trim());
+            const idIndex = header.indexOf('id');
+            const nameIndex = header.indexOf('name');
+            const emailIndex = header.indexOf('email');
+
+            if (idIndex === -1 || nameIndex === -1 || emailIndex === -1) {
+                alert("El fitxer CSV ha de contenir les columnes 'id', 'name', i 'email'.");
+                return;
+            }
+            
+            const importedUsers: User[] = lines.slice(1).map(line => {
+                const data = line.split(',');
+                return {
+                    id: data[idIndex]?.trim(),
+                    name: data[nameIndex]?.trim(),
+                    email: data[emailIndex]?.trim(),
+                };
+            }).filter(u => u.id && u.name && u.email); // Basic validation
+            
+            onImport(importedUsers);
+        };
+        reader.readAsText(file);
+    }
+     // Reset file input to allow re-uploading the same file
+    if(event.target) event.target.value = '';
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-xl shadow-lg">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-bold text-lg text-gray-700">{title}</h3>
+        <div className="flex space-x-2">
+            <button onClick={handleImportClick} className="text-sm bg-blue-500 text-white font-semibold py-1 px-3 rounded-md hover:bg-blue-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Importar CSV</button>
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
+            <button onClick={handleExport} className="text-sm bg-green-500 text-white font-semibold py-1 px-3 rounded-md hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-green-500">Exportar CSV</button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {items.map(item => (
+          <div key={item.id} className="p-2 rounded-md hover:bg-gray-50">
+            {editingId === item.id ? (
+              <div className="space-y-2">
+                 <input type="text" value={editingName} onChange={(e) => setEditingName(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nom" />
+                 <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Correu electrònic" />
+                 <input type="password" value={editingPassword} onChange={(e) => setEditingPassword(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nova contrasenya (deixar en blanc per no canviar)" />
+                <div className="flex items-center space-x-2">
+                    <button onClick={() => saveEdit(item.id)} className="py-1 px-3 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-green-500">Guardar</button>
+                    <button onClick={cancelEditing} className="py-1 px-3 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400">Cancel·lar</button>
+                </div>
+              </div>
+            ) : (
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-800 font-medium">{item.name}</p>
+                        <p className="text-xs text-gray-500">{item.email}</p>
+                    </div>
+                    <div className="flex items-center space-x-2 flex-shrink-0">
+                        <button onClick={() => startEditing(item)} className="py-1 px-3 text-sm bg-blue-100 text-blue-700 font-semibold rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Editar</button>
+                        {item.id !== 'user-master' && <button onClick={() => onDelete(item.id)} className="py-1 px-3 text-sm bg-red-100 text-red-700 font-semibold rounded-md hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500">Eliminar</button>}
+                    </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 pt-4 border-t space-y-2">
+        <h4 className="font-semibold text-gray-600">Afegir Nou Usuari</h4>
+        <input type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="Nom del nou usuari" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" />
+        <input type="email" value={newItemEmail} onChange={(e) => setNewItemEmail(e.target.value)} placeholder="Correu electrònic" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" />
+        <input type="password" value={newItemPassword} onChange={(e) => setNewItemPassword(e.target.value)} placeholder="Contrasenya" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" />
+        <button onClick={handleAdd} className="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">Afegir Usuari</button>
+      </div>
+    </div>
+  );
+};
+
+interface DataManagementProps {
+    onExportData: () => void;
+    onImportData: (file: File) => void;
+    backups: BackupRecord[];
+    onCreateBackup: () => void;
+    onRestoreBackup: (timestamp: number) => void;
+    onDeleteBackup: (timestamp: number) => void;
+}
+
+const DataManagement: React.FC<DataManagementProps> = ({ onExportData, onImportData, backups, onCreateBackup, onRestoreBackup, onDeleteBackup }) => {
+    const importFileRef = useRef<HTMLInputElement>(null);
+
+    const handleImportClick = () => {
+        importFileRef.current?.click();
+    };
+
+    const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            onImportData(file);
+        }
+        if(event.target) event.target.value = '';
+    };
+
+    return (
+        <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+                <h3 className="font-bold text-lg text-gray-700 mb-4">Importar / Exportar</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                    Descarrega una còpia de seguretat completa de totes les dades en format JSON, o carrega un fitxer per restaurar l'estat de l'aplicació.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <button onClick={onExportData} className="flex-1 flex items-center justify-center bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500">
+                        <DownloadIcon />
+                        Exportar Còpia de Seguretat
+                    </button>
+                    <button onClick={handleImportClick} className="flex-1 flex items-center justify-center bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
+                        <UploadIcon />
+                        Importar Còpia de Seguretat
+                    </button>
+                    <input type="file" ref={importFileRef} onChange={handleFileSelected} accept=".json" className="hidden" />
+                </div>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-lg">
+                <h3 className="font-bold text-lg text-gray-700 mb-4">Punts de Restauració (Local)</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                    Crea punts de restauració desats al teu navegador. Això no crea un fitxer descarregable.
+                </p>
+                <button onClick={onCreateBackup} className="w-full flex items-center justify-center bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500">
+                    <SaveIcon />
+                    Crear Punt de Restauració Ara
+                </button>
+                <div className="mt-4 pt-4 border-t max-h-48 overflow-y-auto">
+                    {backups.length > 0 ? (
+                        backups.map(backup => (
+                            <div key={backup.timestamp} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-50">
+                                <span className="text-sm font-medium text-gray-700">{backup.description}</span>
+                                <div className="flex items-center space-x-2">
+                                    <button onClick={() => onRestoreBackup(backup.timestamp)} title="Restaurar" className="p-1 text-blue-600 hover:text-blue-800 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"><RestoreIcon/></button>
+                                    <button onClick={() => onDeleteBackup(backup.timestamp)} title="Eliminar" className="p-1 text-red-600 hover:text-red-800 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500 rounded"><TrashIcon/></button>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-center text-sm text-gray-500 py-4">No hi ha punts de restauració.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+interface AdminViewProps {
+  adminData: AdminData;
+  onUpdate: (list: keyof AdminData, id: string, name: string, email?: string) => void;
+  onDelete: (list: keyof AdminData, id: string) => void;
+  onAdd: (list: keyof AdminData, name: string, email?: string) => void;
+  onUpdateUser: (id: string, name: string, email: string, password?: string) => void;
+  onDeleteUser: (id: string) => void;
+  onAddUser: (name: string, email: string, password?: string) => void;
+  onImportUsers: (users: User[]) => void;
+  onBack: () => void;
+  onExportData: () => void;
+  onImportData: (file: File) => void;
+  backups: BackupRecord[];
+  onCreateBackup: () => void;
+  onRestoreBackup: (timestamp: number) => void;
+  onDeleteBackup: (timestamp: number) => void;
+}
+
+const AdminView: React.FC<AdminViewProps> = (props) => {
+  const { adminData, onUpdate, onDelete, onAdd, onUpdateUser, onDeleteUser, onAddUser, onImportUsers, onBack, ...dataManagementProps } = props;
+  
+  return (
+    <div className="space-y-8 animate-fade-in">
+        <header className="flex justify-between items-center">
+             <div className="flex items-center space-x-3">
+                <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <AdminIcon />
+                </div>
+                 <div>
+                    <h1 className="text-2xl md:text-4xl font-bold text-gray-800">Panell d'Administració</h1>
+                    <p className="text-gray-600 font-semibold text-lg">Gestionar dades de l'aplicació</p>
+                </div>
+            </div>
+             <button
+                onClick={onBack}
+                className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
+            >
+                &larr; Tornar al dashboard
+            </button>
+        </header>
+
+        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <DataManagement {...dataManagementProps} />
+            <AdminListManager 
+                title="Procediments"
+                items={adminData.procediments}
+                onUpdate={(id, name) => onUpdate('procediments', id, name)}
+                onDelete={(id) => onDelete('procediments', id)}
+                onAdd={(name) => onAdd('procediments', name)}
+            />
+             <AdminListManager 
+                title="Sentit de l'Informe"
+                items={adminData.sentitInformes}
+                onUpdate={(id, name) => onUpdate('sentitInformes', id, name)}
+                onDelete={(id) => onDelete('sentitInformes', id)}
+                onAdd={(name) => onAdd('sentitInformes', name)}
+            />
+            <AdminListManager 
+                title="Departaments"
+                items={adminData.departaments}
+                onUpdate={(id, name) => onUpdate('departaments', id, name)}
+                onDelete={(id) => onDelete('departaments', id)}
+                onAdd={(name) => onAdd('departaments', name)}
+            />
+            <AdminListManager 
+                title="Tècnics"
+                items={adminData.tecnics}
+                onUpdate={(id, name, email) => onUpdate('tecnics', id, name, email)}
+                onDelete={(id) => onDelete('tecnics', id)}
+                onAdd={(name, email) => onAdd('tecnics', name, email)}
+                hasEmailField={true}
+            />
+             <AdminListManager 
+                title="Regidors"
+                items={adminData.regidors}
+                onUpdate={(id, name, email) => onUpdate('regidors', id, name, email)}
+                onDelete={(id) => onDelete('regidors', id)}
+                onAdd={(name, email) => onAdd('regidors', name, email)}
+                hasEmailField={true}
+            />
+            <UserAdminManager
+                title="Usuaris"
+                items={adminData.users}
+                onUpdate={onUpdateUser}
+                onDelete={onDeleteUser}
+                onAdd={onAddUser}
+                onImport={onImportUsers}
+            />
+        </main>
+    </div>
+  );
+};
+
+export default AdminView;
