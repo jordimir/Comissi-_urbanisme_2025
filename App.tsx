@@ -505,7 +505,6 @@ const App: React.FC = () => {
         return (
           <Dashboard
             commissions={filteredCommissions}
-            commissionDetails={commissionDetails}
             onSelectCommission={handleSelectCommission}
             statistics={filteredStatistics}
             onUpdateCommission={handleUpdateCommissionSummary}
@@ -516,7 +515,6 @@ const App: React.FC = () => {
             availableYears={availableYears}
             selectedYear={selectedYear}
             onYearChange={handleYearChange}
-            onLogout={handleLogout}
           />
         );
     }
