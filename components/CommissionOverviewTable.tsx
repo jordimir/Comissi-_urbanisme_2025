@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { CommissionSummary } from '../types';
 import { CheckIcon, SquareIcon, RightArrowIcon, EmailIcon } from './icons/Icons';
@@ -140,9 +139,6 @@ const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commi
           </div>
         ))}
       </div>
-        <div className="text-right text-xs text-gray-400 mt-4 pr-2">
-            Última actualització: 14/08/2025
-        </div>
     </div>
   );
 };
