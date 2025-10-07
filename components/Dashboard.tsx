@@ -2,10 +2,11 @@ import React from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
-import { CommissionSummary, StatisticsData } from '../types';
+import { CommissionSummary, CommissionDetail, StatisticsData } from '../types';
 
 interface DashboardProps {
   commissions: CommissionSummary[];
+  commissionDetails: CommissionDetail[];
   onSelectCommission: (commission: CommissionSummary) => void;
   statistics: StatisticsData;
   onUpdateCommission: (numActa: number, dataComissio: string, field: keyof CommissionSummary, value: any) => void;
@@ -16,12 +17,14 @@ interface DashboardProps {
   availableYears: string[];
   selectedYear: string;
   onYearChange: (year: string) => void;
+  onLogout: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ 
-  commissions, 
-  onSelectCommission, 
-  statistics, 
+const Dashboard: React.FC<DashboardProps> = ({
+  commissions,
+  commissionDetails,
+  onSelectCommission,
+  statistics,
   onUpdateCommission,
   onMarkCommissionAsSent,
   onNavigateToAdmin,
@@ -29,14 +32,16 @@ const Dashboard: React.FC<DashboardProps> = ({
   onShowInfoModal,
   availableYears,
   selectedYear,
-  onYearChange
+  onYearChange,
+  onLogout
 }) => {
   return (
     <div className="space-y-8">
-      <Header 
-        onNavigateToAdmin={onNavigateToAdmin} 
+      <Header
+        onNavigateToAdmin={onNavigateToAdmin}
         onGenerateCommissions={onGenerateCommissions}
-        onShowInfoModal={onShowInfoModal} 
+        onShowInfoModal={onShowInfoModal}
+        onLogout={onLogout}
       />
       <main>
         <div className="my-4 flex justify-end items-center space-x-2">
@@ -59,7 +64,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           onUpdateCommission={onUpdateCommission}
           onMarkCommissionAsSent={onMarkCommissionAsSent}
         />
-        <StatisticsView statistics={statistics} />
+        <StatisticsView
+          statistics={statistics}
+          commissions={commissions}
+          commissionDetails={commissionDetails}
+          selectedYear={selectedYear}
+        />
       </main>
     </div>
   );
