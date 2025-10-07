@@ -639,11 +639,6 @@ const App: React.FC = () => {
         onConfirm={modalState.onConfirm}
       />
       {renderView()}
-      {!isFocusMode && (
-        <footer className="text-center text-xs text-gray-500 dark:text-gray-400 pt-8 no-print">
-          <span>03/10/2025 9:44:12</span>
-        </footer>
-      )}
     </div>
   );
 };
