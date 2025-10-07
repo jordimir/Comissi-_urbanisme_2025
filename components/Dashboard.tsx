@@ -1,7 +1,9 @@
+
 import React from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
+import TechnicianWorkloadTable from './TechnicianWorkloadTable';
 import { CommissionSummary, StatisticsData } from '../types';
 
 interface DashboardProps {
@@ -59,6 +61,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           onUpdateCommission={onUpdateCommission}
           onMarkCommissionAsSent={onMarkCommissionAsSent}
         />
+
+        <TechnicianWorkloadTable data={statistics.technicianWorkload} />
+
         <StatisticsView statistics={statistics} />
       </main>
     </div>

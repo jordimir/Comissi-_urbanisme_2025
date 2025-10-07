@@ -69,12 +69,22 @@ export interface MonthlyWorkloadStat {
     'Expedients': number;
 }
 
+export interface TechnicianWorkload {
+    headers: { date: string; isFuture: boolean }[];
+    technicians: string[];
+    data: Record<string, Record<string, number>>;
+    rowTotals: Record<string, number>;
+    columnTotals: number[];
+    grandTotal: number;
+}
+
 export interface StatisticsData {
     technicianDistribution: TechnicianStat[];
     workloadOverTime: WorkloadStat[];
     reportStatusDistribution: ReportStatusStat[];
     procedureTypeDistribution: ProcedureTypeStat[];
     monthlyWorkload: MonthlyWorkloadStat[];
+    technicianWorkload: TechnicianWorkload;
 }
 
 export interface AdminList {

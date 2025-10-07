@@ -5,7 +5,7 @@ import Dashboard from './components/Dashboard';
 import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
 import Modal from './components/Modal';
-import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord } from './types';
+import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, TechnicianWorkload } from './types';
 import { adminData as initialAdminData } from './data';
 
 type View = 'dashboard' | 'detail' | 'admin';
@@ -416,10 +416,10 @@ const App: React.FC = () => {
 
   const filteredStatistics = useMemo<StatisticsData>(() => {
     const yearCommissions = commissions.filter(c => c.dataComissio.endsWith(selectedYear));
-    const yearCommissionActaNumbers = yearCommissions.map(c => c.numActa);
+    const yearCommissionActaNumbers = new Set(yearCommissions.map(c => c.numActa));
 
     const yearCommissionDetails = commissionDetails.filter(d => 
-        yearCommissionActaNumbers.includes(d.numActa) && d.sessio.endsWith(selectedYear)
+        yearCommissionActaNumbers.has(d.numActa) && d.sessio.endsWith(selectedYear)
     );
 
     const techCounts: { [key: string]: number } = {};
@@ -452,14 +452,63 @@ const App: React.FC = () => {
         }
     });
 
+    const headers = sortedYearCommissions.map(c => ({
+        date: c.dataComissio,
+        isFuture: c.estat === 'Oberta'
+    }));
+    const dateHeaders = headers.map(h => h.date);
+
+    const technicians = adminData.tecnics.map(t => t.name);
+    
+    const workloadData: Record<string, Record<string, number>> = {};
+    technicians.forEach(tech => {
+        workloadData[tech] = {};
+        dateHeaders.forEach(date => {
+            workloadData[tech][date] = 0;
+        });
+    });
+
+    yearCommissionDetails.forEach(detail => {
+        detail.expedients.forEach(expedient => {
+            const techName = expedient.tecnic;
+            if (workloadData[techName] && workloadData[techName][detail.sessio] !== undefined) {
+                workloadData[techName][detail.sessio]++;
+            }
+        });
+    });
+
+    const rowTotals: Record<string, number> = {};
+    technicians.forEach(tech => {
+        rowTotals[tech] = dateHeaders.reduce((sum, date) => sum + (workloadData[tech]?.[date] || 0), 0);
+    });
+
+    const columnTotals: number[] = [];
+    dateHeaders.forEach((date, index) => {
+        const total = technicians.reduce((sum, tech) => sum + (workloadData[tech]?.[date] || 0), 0);
+        columnTotals[index] = total;
+    });
+
+    const grandTotal = columnTotals.reduce((sum, total) => sum + total, 0);
+
+    const technicianWorkload: TechnicianWorkload = {
+        headers,
+        technicians,
+        data: workloadData,
+        rowTotals,
+        columnTotals,
+        grandTotal,
+    };
+
     return {
       technicianDistribution,
       workloadOverTime,
       reportStatusDistribution: [],
       procedureTypeDistribution: [],
       monthlyWorkload: [],
+      technicianWorkload,
     };
-  }, [selectedYear, commissions, commissionDetails]);
+  }, [selectedYear, commissions, commissionDetails, adminData.tecnics]);
+
 
   if (isLoading) {
     return (
