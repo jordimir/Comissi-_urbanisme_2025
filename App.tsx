@@ -7,7 +7,8 @@ import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
 import Modal from './components/Modal';
 import Toast from './components/Toast';
-import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, TechnicianWorkload, ToastMessage } from './types';
+// FIX: Import TechnicianWorkload type to resolve reference error.
+import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, ToastMessage, TechnicianWorkload } from './types';
 import { adminData as initialAdminData } from './data';
 
 type View = 'dashboard' | 'detail' | 'admin';
@@ -51,8 +52,8 @@ const App: React.FC = () => {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type, id: Date.now() });
+  const showToast = (message: string, type: 'success' | 'error' = 'success', onUndo?: () => void) => {
+    setToast({ message, type, id: Date.now(), onUndo });
   };
 
   const hideToast = () => {
@@ -574,6 +575,7 @@ const App: React.FC = () => {
             onBack={handleBackToDashboard}
             onSave={handleSaveCommissionDetails}
             adminData={adminData}
+            showToast={showToast}
           />
         );
       case 'admin':
