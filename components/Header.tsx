@@ -22,7 +22,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
           </div>
           <div>
             <h1 className="text-2xl md:text-4xl font-bold text-gray-800 dark:text-gray-100">COMISSIÓ D'URBANISME</h1>
-            <p className="text-indigo-600 dark:text-indigo-400 font-semibold text-lg">ESTADÍSTIQUES</p>
+            <p className="text-indigo-600 dark:text-indigo-400 font-semibold text-lg">ESTADÍSTIQUES - ÀREA D'URBANISME</p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
