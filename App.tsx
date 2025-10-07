@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as api from './api';
 import Dashboard from './components/Dashboard';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
 
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: undefined as (() => void) | undefined });
   const [backups, setBackups] = useState<BackupRecord[]>([]);
+  const [isFocusMode, setIsFocusMode] = useState(false);
 
   useEffect(() => {
     // Load local backups from localStorage on mount
@@ -509,6 +511,9 @@ const App: React.FC = () => {
     };
   }, [selectedYear, commissions, commissionDetails, adminData.tecnics]);
 
+  const toggleFocusMode = () => {
+    setIsFocusMode(prev => !prev);
+  };
 
   if (isLoading) {
     return (
@@ -560,10 +565,11 @@ const App: React.FC = () => {
             onMarkCommissionAsSent={handleMarkCommissionAsSent}
             onNavigateToAdmin={handleNavigateToAdmin}
             onGenerateCommissions={handleGenerateNextYearCommissions}
-            onShowInfoModal={showInfoModal}
             availableYears={availableYears}
             selectedYear={selectedYear}
             onYearChange={handleYearChange}
+            isFocusMode={isFocusMode}
+            onToggleFocusMode={toggleFocusMode}
           />
         );
     }
@@ -571,6 +577,15 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen text-gray-800 p-4 lg:p-8 app-container">
+      {isFocusMode && (
+        <button
+          onClick={toggleFocusMode}
+          className="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-sm text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-white shadow-lg transition-all no-print animate-fade-in"
+          title="Sortir del Mode Focus"
+        >
+          &times; Sortir del Mode Focus
+        </button>
+      )}
       <Modal 
         isOpen={modalState.isOpen}
         title={modalState.title}
@@ -579,9 +594,11 @@ const App: React.FC = () => {
         onConfirm={modalState.onConfirm}
       />
       {renderView()}
-      <footer className="text-center text-xs text-gray-500 pt-8 no-print">
-        <span>03/10/2025 9:44:12</span>
-      </footer>
+      {!isFocusMode && (
+        <footer className="text-center text-xs text-gray-500 pt-8 no-print">
+          <span>03/10/2025 9:44:12</span>
+        </footer>
+      )}
     </div>
   );
 };

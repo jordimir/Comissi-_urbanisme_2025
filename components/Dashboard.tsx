@@ -1,5 +1,6 @@
 
-import React from 'react';
+
+import React, { useState } from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
@@ -14,10 +15,11 @@ interface DashboardProps {
   onMarkCommissionAsSent: (numActa: number, dataComissio: string) => void;
   onNavigateToAdmin: () => void;
   onGenerateCommissions: () => void;
-  onShowInfoModal: (title: string, message: string) => void;
   availableYears: string[];
   selectedYear: string;
   onYearChange: (year: string) => void;
+  isFocusMode: boolean;
+  onToggleFocusMode: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -28,18 +30,24 @@ const Dashboard: React.FC<DashboardProps> = ({
   onMarkCommissionAsSent,
   onNavigateToAdmin,
   onGenerateCommissions,
-  onShowInfoModal,
   availableYears,
   selectedYear,
-  onYearChange
+  onYearChange,
+  isFocusMode,
+  onToggleFocusMode
 }) => {
+  const [isWorkloadTableVisible, setIsWorkloadTableVisible] = useState(false);
+  const [isStatisticsVisible, setIsStatisticsVisible] = useState(false);
+
   return (
     <div className="space-y-8">
-      <Header 
-        onNavigateToAdmin={onNavigateToAdmin} 
-        onGenerateCommissions={onGenerateCommissions}
-        onShowInfoModal={onShowInfoModal} 
-      />
+      {!isFocusMode && (
+        <Header 
+          onNavigateToAdmin={onNavigateToAdmin} 
+          onGenerateCommissions={onGenerateCommissions}
+          onToggleFocusMode={onToggleFocusMode}
+        />
+      )}
       <main>
         <div className="my-4 flex justify-end items-center space-x-2">
             <label htmlFor="year-select" className="font-semibold text-gray-700">Seleccionar Any:</label>
@@ -62,9 +70,24 @@ const Dashboard: React.FC<DashboardProps> = ({
           onMarkCommissionAsSent={onMarkCommissionAsSent}
         />
 
-        <TechnicianWorkloadTable data={statistics.technicianWorkload} />
+        <div className="my-6 flex justify-center gap-4 no-print">
+          <button
+            onClick={() => setIsWorkloadTableVisible(prev => !prev)}
+            className="bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500"
+          >
+            {isWorkloadTableVisible ? "Amagar Taula d'Expedients" : "Veure Taula d'Expedients"}
+          </button>
+           <button
+            onClick={() => setIsStatisticsVisible(prev => !prev)}
+            className="bg-teal-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-teal-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-500"
+          >
+            {isStatisticsVisible ? "Amagar Estadístiques Anuals" : "Veure Estadístiques Anuals"}
+          </button>
+        </div>
 
-        <StatisticsView statistics={statistics} />
+        {isWorkloadTableVisible && <TechnicianWorkloadTable data={statistics.technicianWorkload} />}
+
+        {isStatisticsVisible && <StatisticsView statistics={statistics} />}
       </main>
     </div>
   );

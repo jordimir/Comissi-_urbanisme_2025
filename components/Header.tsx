@@ -1,13 +1,14 @@
+
 import React from 'react';
-import { ClockIcon, WarningIcon, CalendarIcon, AdminIcon } from './icons/Icons';
+import { CalendarIcon, AdminIcon, FocusIcon } from './icons/Icons';
 
 interface HeaderProps {
     onNavigateToAdmin?: () => void;
     onGenerateCommissions?: () => void;
-    onShowInfoModal?: (title: string, message: string) => void;
+    onToggleFocusMode?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onShowInfoModal }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onToggleFocusMode }) => {
   return (
     <header className="bg-white/50 backdrop-blur-sm p-4 rounded-xl shadow-md">
       <div className="flex justify-between items-center">
@@ -23,19 +24,12 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
           </div>
         </div>
         <div className="flex items-center space-x-2">
-           <button
-            onClick={() => onShowInfoModal?.('Accés 24/7', 'Aquesta plataforma està dissenyada per ser accessible les 24 hores del dia, els 7 dies de la setmana.')}
-            title="Accés 24/7"
-            className="hidden md:inline-flex p-3 bg-gray-200 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
-          >
-            <ClockIcon />
-          </button>
           <button
-            onClick={() => onShowInfoModal?.('Avisos Importants', 'Aquí trobareu notificacions i avisos rellevants sobre les comissions d\'urbanisme.')}
-            title="Avisos"
-            className="hidden md:inline-flex p-3 bg-red-200 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
+            onClick={onToggleFocusMode}
+            title="Mode Focus"
+            className="hidden md:inline-flex p-3 bg-blue-200 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400"
           >
-            <WarningIcon />
+            <FocusIcon />
           </button>
           <button
             onClick={onGenerateCommissions}
