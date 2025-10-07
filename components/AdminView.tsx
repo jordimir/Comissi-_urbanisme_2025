@@ -47,18 +47,18 @@ const AdminListManager: React.FC<AdminListManagerProps> = ({ title, items, onUpd
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-lg">
-      <h3 className="font-bold text-lg text-gray-700 mb-4">{title}</h3>
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+      <h3 className="font-bold text-lg text-gray-700 dark:text-gray-200 mb-4">{title}</h3>
       <div className="space-y-2">
         {items.map(item => (
-          <div key={item.id} className="p-2 rounded-md hover:bg-gray-50">
+          <div key={item.id} className="p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
             {editingId === item.id ? (
               <div className="space-y-2">
                  <input
                     type="text"
                     value={editingName}
                     onChange={(e) => setEditingName(e.target.value)}
-                    className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     placeholder="Nom"
                 />
                 {hasEmailField && (
@@ -66,37 +66,37 @@ const AdminListManager: React.FC<AdminListManagerProps> = ({ title, items, onUpd
                         type="email"
                         value={editingEmail}
                         onChange={(e) => setEditingEmail(e.target.value)}
-                        className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                         placeholder="Correu electrònic"
                     />
                 )}
                 <div className="flex items-center space-x-2">
                     <button onClick={() => saveEdit(item.id)} className="py-1 px-3 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-green-500">Guardar</button>
-                    <button onClick={cancelEditing} className="py-1 px-3 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400">Cancel·lar</button>
+                    <button onClick={cancelEditing} className="py-1 px-3 text-sm bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400">Cancel·lar</button>
                 </div>
               </div>
             ) : (
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-gray-800 font-medium">{item.name}</p>
-                        {hasEmailField && item.email && <p className="text-xs text-gray-500">{item.email}</p>}
+                        <p className="text-gray-800 dark:text-gray-200 font-medium">{item.name}</p>
+                        {hasEmailField && item.email && <p className="text-xs text-gray-500 dark:text-gray-400">{item.email}</p>}
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">
-                        <button onClick={() => startEditing(item)} className="py-1 px-3 text-sm bg-blue-100 text-blue-700 font-semibold rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Editar</button>
-                        <button onClick={() => onDelete(item.id)} className="py-1 px-3 text-sm bg-red-100 text-red-700 font-semibold rounded-md hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500">Eliminar</button>
+                        <button onClick={() => startEditing(item)} className="py-1 px-3 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold rounded-md hover:bg-blue-200 dark:hover:bg-blue-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Editar</button>
+                        <button onClick={() => onDelete(item.id)} className="py-1 px-3 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold rounded-md hover:bg-red-200 dark:hover:bg-red-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500">Eliminar</button>
                     </div>
               </div>
             )}
           </div>
         ))}
       </div>
-      <div className="mt-4 pt-4 border-t space-y-2">
+      <div className="mt-4 pt-4 border-t dark:border-gray-700 space-y-2">
         <input
           type="text"
           value={newItemName}
           onChange={(e) => setNewItemName(e.target.value)}
           placeholder="Nom del nou element"
-          className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600"
         />
         {hasEmailField && (
             <input
@@ -104,7 +104,7 @@ const AdminListManager: React.FC<AdminListManagerProps> = ({ title, items, onUpd
                 value={newItemEmail}
                 onChange={(e) => setNewItemEmail(e.target.value)}
                 placeholder="Correu electrònic (opcional)"
-                className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600"
             />
         )}
         <button onClick={handleAdd} className="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">Afegir</button>
@@ -220,14 +220,13 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
         };
         reader.readAsText(file);
     }
-     // Reset file input to allow re-uploading the same file
-    if(event.target) event.target.value = '';
+     if(event.target) event.target.value = '';
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-lg">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-bold text-lg text-gray-700">{title}</h3>
+        <h3 className="font-bold text-lg text-gray-700 dark:text-gray-200">{title}</h3>
         <div className="flex space-x-2">
             <button onClick={handleImportClick} className="text-sm bg-blue-500 text-white font-semibold py-1 px-3 rounded-md hover:bg-blue-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Importar CSV</button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
@@ -236,37 +235,37 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
       </div>
       <div className="space-y-2">
         {items.map(item => (
-          <div key={item.id} className="p-2 rounded-md hover:bg-gray-50">
+          <div key={item.id} className="p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
             {editingId === item.id ? (
               <div className="space-y-2">
-                 <input type="text" value={editingName} onChange={(e) => setEditingName(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nom" />
-                 <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Correu electrònic" />
-                 <input type="password" value={editingPassword} onChange={(e) => setEditingPassword(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nova contrasenya (deixar en blanc per no canviar)" />
+                 <input type="text" value={editingName} onChange={(e) => setEditingName(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nom" />
+                 <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Correu electrònic" />
+                 <input type="password" value={editingPassword} onChange={(e) => setEditingPassword(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nova contrasenya (deixar en blanc per no canviar)" />
                 <div className="flex items-center space-x-2">
                     <button onClick={() => saveEdit(item.id)} className="py-1 px-3 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-green-500">Guardar</button>
-                    <button onClick={cancelEditing} className="py-1 px-3 text-sm bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400">Cancel·lar</button>
+                    <button onClick={cancelEditing} className="py-1 px-3 text-sm bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400">Cancel·lar</button>
                 </div>
               </div>
             ) : (
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-gray-800 font-medium">{item.name}</p>
-                        <p className="text-xs text-gray-500">{item.email}</p>
+                        <p className="text-gray-800 dark:text-gray-200 font-medium">{item.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{item.email}</p>
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">
-                        <button onClick={() => startEditing(item)} className="py-1 px-3 text-sm bg-blue-100 text-blue-700 font-semibold rounded-md hover:bg-blue-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Editar</button>
-                        {item.id !== 'user-master' && <button onClick={() => onDelete(item.id)} className="py-1 px-3 text-sm bg-red-100 text-red-700 font-semibold rounded-md hover:bg-red-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500">Eliminar</button>}
+                        <button onClick={() => startEditing(item)} className="py-1 px-3 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-semibold rounded-md hover:bg-blue-200 dark:hover:bg-blue-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500">Editar</button>
+                        {item.id !== 'user-master' && <button onClick={() => onDelete(item.id)} className="py-1 px-3 text-sm bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 font-semibold rounded-md hover:bg-red-200 dark:hover:bg-red-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-red-500">Eliminar</button>}
                     </div>
               </div>
             )}
           </div>
         ))}
       </div>
-      <div className="mt-4 pt-4 border-t space-y-2">
-        <h4 className="font-semibold text-gray-600">Afegir Nou Usuari</h4>
-        <input type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="Nom del nou usuari" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" />
-        <input type="email" value={newItemEmail} onChange={(e) => setNewItemEmail(e.target.value)} placeholder="Correu electrònic" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" />
-        <input type="password" value={newItemPassword} onChange={(e) => setNewItemPassword(e.target.value)} placeholder="Contrasenya" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400" />
+      <div className="mt-4 pt-4 border-t dark:border-gray-700 space-y-2">
+        <h4 className="font-semibold text-gray-600 dark:text-gray-300">Afegir Nou Usuari</h4>
+        <input type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="Nom del nou usuari" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600" />
+        <input type="email" value={newItemEmail} onChange={(e) => setNewItemEmail(e.target.value)} placeholder="Correu electrònic" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600" />
+        <input type="password" value={newItemPassword} onChange={(e) => setNewItemPassword(e.target.value)} placeholder="Contrasenya" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600" />
         <button onClick={handleAdd} className="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">Afegir Usuari</button>
       </div>
     </div>
@@ -299,9 +298,9 @@ const DataManagement: React.FC<DataManagementProps> = ({ onExportData, onImportD
 
     return (
         <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="font-bold text-lg text-gray-700 mb-4">Importar / Exportar</h3>
-                <p className="text-sm text-gray-600 mb-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                <h3 className="font-bold text-lg text-gray-700 dark:text-gray-200 mb-4">Importar / Exportar</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Descarrega una còpia de seguretat completa de totes les dades en format JSON, o carrega un fitxer per restaurar l'estat de l'aplicació.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -316,28 +315,28 @@ const DataManagement: React.FC<DataManagementProps> = ({ onExportData, onImportD
                     <input type="file" ref={importFileRef} onChange={handleFileSelected} accept=".json" className="hidden" />
                 </div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-lg">
-                <h3 className="font-bold text-lg text-gray-700 mb-4">Punts de Restauració (Local)</h3>
-                <p className="text-sm text-gray-600 mb-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+                <h3 className="font-bold text-lg text-gray-700 dark:text-gray-200 mb-4">Punts de Restauració (Local)</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Crea punts de restauració desats al teu navegador. Això no crea un fitxer descarregable.
                 </p>
                 <button onClick={onCreateBackup} className="w-full flex items-center justify-center bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500">
                     <SaveIcon />
                     Crear Punt de Restauració Ara
                 </button>
-                <div className="mt-4 pt-4 border-t max-h-48 overflow-y-auto">
+                <div className="mt-4 pt-4 border-t dark:border-gray-700 max-h-48 overflow-y-auto">
                     {backups.length > 0 ? (
                         backups.map(backup => (
-                            <div key={backup.timestamp} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-50">
-                                <span className="text-sm font-medium text-gray-700">{backup.description}</span>
+                            <div key={backup.timestamp} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{backup.description}</span>
                                 <div className="flex items-center space-x-2">
-                                    <button onClick={() => onRestoreBackup(backup.timestamp)} title="Restaurar" className="p-1 text-blue-600 hover:text-blue-800 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"><RestoreIcon/></button>
-                                    <button onClick={() => onDeleteBackup(backup.timestamp)} title="Eliminar" className="p-1 text-red-600 hover:text-red-800 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500 rounded"><TrashIcon/></button>
+                                    <button onClick={() => onRestoreBackup(backup.timestamp)} title="Restaurar" className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"><RestoreIcon/></button>
+                                    <button onClick={() => onDeleteBackup(backup.timestamp)} title="Eliminar" className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500 rounded"><TrashIcon/></button>
                                 </div>
                             </div>
                         ))
                     ) : (
-                        <p className="text-center text-sm text-gray-500 py-4">No hi ha punts de restauració.</p>
+                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">No hi ha punts de restauració.</p>
                     )}
                 </div>
             </div>
@@ -371,17 +370,17 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     <div className="space-y-8 animate-fade-in">
         <header className="flex justify-between items-center">
              <div className="flex items-center space-x-3">
-                <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
                     <AdminIcon />
                 </div>
                  <div>
-                    <h1 className="text-2xl md:text-4xl font-bold text-gray-800">Panell d'Administració</h1>
-                    <p className="text-gray-600 font-semibold text-lg">Gestionar dades de l'aplicació</p>
+                    <h1 className="text-2xl md:text-4xl font-bold text-gray-800 dark:text-gray-100">Panell d'Administració</h1>
+                    <p className="text-gray-600 dark:text-gray-400 font-semibold text-lg">Gestionar dades de l'aplicació</p>
                 </div>
             </div>
              <button
                 onClick={onBack}
-                className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
+                className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
             >
                 &larr; Tornar al dashboard
             </button>

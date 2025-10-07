@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface ModalProps {
@@ -26,15 +27,15 @@ const Modal: React.FC<ModalProps> = ({ isOpen, title, message, onClose, onConfir
         onClick={onClose}
     >
       <div 
-        className="bg-white p-6 rounded-xl shadow-2xl max-w-md w-full m-4 transform transition-all animate-slide-up"
+        className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl max-w-md w-full m-4 transform transition-all animate-slide-up"
         onClick={e => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-gray-800 mb-4">{title}</h3>
-        <p className="text-gray-600 mb-6">{message}</p>
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">{title}</h3>
+        <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
         <div className="flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+            className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
           >
             {onConfirm ? 'Cancel·lar' : 'Tancar'}
           </button>

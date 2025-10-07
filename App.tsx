@@ -6,10 +6,12 @@ import Dashboard from './components/Dashboard';
 import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
 import Modal from './components/Modal';
-import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, TechnicianWorkload } from './types';
+import Toast from './components/Toast';
+import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, TechnicianWorkload, ToastMessage } from './types';
 import { adminData as initialAdminData } from './data';
 
 type View = 'dashboard' | 'detail' | 'admin';
+type Theme = 'light' | 'dark';
 
 const COLORS = ['#14b8a6', '#f97316', '#ef4444', '#8b5cf6', '#3b82f6', '#f43f5e', '#06b6d4', '#d946ef'];
 const BACKUP_STORAGE_KEY = 'urbanisme_backups';
@@ -19,17 +21,45 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCommission, setSelectedCommission] = useState<CommissionSummary | null>(null);
   
-  // Initialize state with empty data structures
   const [commissionDetails, setCommissionDetails] = useState<CommissionDetail[]>([]);
   const [commissions, setCommissions] = useState<CommissionSummary[]>([]);
   const [adminData, setAdminData] = useState<AdminData>(initialAdminData);
 
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: undefined as (() => void) | undefined });
+  const [toast, setToast] = useState<ToastMessage | null>(null);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [isFocusMode, setIsFocusMode] = useState(false);
+  const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    // Load local backups from localStorage on mount
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type, id: Date.now() });
+  };
+
+  const hideToast = () => {
+    setToast(null);
+  };
+
+  useEffect(() => {
     try {
         const savedBackups = localStorage.getItem(BACKUP_STORAGE_KEY);
         if (savedBackups) {
@@ -42,7 +72,6 @@ const App: React.FC = () => {
         setBackups([]);
     }
 
-    // Fetch main application data from the API
     const fetchData = async () => {
         setIsLoading(true);
         try {
@@ -52,7 +81,7 @@ const App: React.FC = () => {
             setAdminData(data.adminData);
         } catch (error) {
             console.error("Failed to load application data", error);
-            showInfoModal('Error de Càrrega', 'No s\'han pogut carregar les dades de l\'aplicació.');
+            showToast('No s\'han pogut carregar les dades de l\'aplicació.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -77,10 +106,6 @@ const App: React.FC = () => {
     setSelectedYear(year);
   };
 
-  const showInfoModal = (title: string, message: string) => {
-    setModalState({ isOpen: true, title, message, onConfirm: undefined });
-  };
-  
   const closeModal = () => {
     setModalState({ isOpen: false, title: '', message: '', onConfirm: undefined });
   };
@@ -98,10 +123,10 @@ const App: React.FC = () => {
             const newCommissions = await api.generateNextYearCommissions();
             const fullData = await api.getApplicationData();
             setCommissions(fullData.commissions);
-            showInfoModal('Èxit', `S'han generat ${newCommissions.length} comissions per a l'any ${nextYear}.`);
+            showToast(`S'han generat ${newCommissions.length} comissions per a l'any ${nextYear}.`);
         } catch (error) {
             console.error('Failed to generate commissions', error);
-            showInfoModal('Error', 'No s\'han pogut generar les comissions.');
+            showToast('No s\'han pogut generar les comissions.', 'error');
         }
       }
     });
@@ -111,7 +136,6 @@ const App: React.FC = () => {
       try {
         const detail = await api.getCommissionDetail(commission.numActa);
         if (detail) {
-            // Add or update the detail in our local state
             setCommissionDetails(prev => {
                 const exists = prev.some(d => d.numActa === detail.numActa);
                 if (exists) {
@@ -122,11 +146,11 @@ const App: React.FC = () => {
             setSelectedCommission(commission);
             setView('detail');
         } else {
-             showInfoModal('Error', `No s'han trobat detalls per a la comissió ${commission.numActa}.`);
+             showToast(`No s'han trobat detalls per a la comissió ${commission.numActa}.`, 'error');
         }
       } catch (error) {
         console.error("Failed to fetch commission details", error);
-        showInfoModal('Error', 'No s\'han pogut carregar els detalls de la comissió.');
+        showToast('No s\'han pogut carregar els detalls de la comissió.', 'error');
       }
   }, []);
 
@@ -147,7 +171,6 @@ const App: React.FC = () => {
     try {
         const savedDetail = await api.saveCommissionDetails(updatedDetail);
         
-        // Optimistic update + fetching the truth from API response
         setCommissionDetails(prevDetails => {
             const newDetails = prevDetails.map(detail =>
                 detail.numActa === savedDetail.numActa ? savedDetail : detail
@@ -167,10 +190,10 @@ const App: React.FC = () => {
               diaSetmana: api.getDayOfWeekCatalan(savedDetail.sessio),
             } : summary
           ));
-        showInfoModal('Guardat', 'Els canvis s\'han guardat correctament.');
+        showToast('Els canvis s\'han guardat correctament.');
     } catch (error) {
         console.error("Failed to save commission details", error);
-        showInfoModal('Error', 'No s\'han pogut guardar els canvis.');
+        showToast('No s\'han pogut guardar els canvis.', 'error');
     }
   };
 
@@ -192,9 +215,10 @@ const App: React.FC = () => {
             }
             return c;
         }));
+        showToast('Comissió actualitzada.');
       } catch(error) {
           console.error("Failed to update commission summary", error);
-          showInfoModal('Error', 'No s\'ha pogut actualitzar la comissió.');
+          showToast('No s\'ha pogut actualitzar la comissió.', 'error');
       }
   };
 
@@ -202,9 +226,10 @@ const App: React.FC = () => {
     try {
         const updatedCommission = await api.markCommissionAsSent(numActa, dataComissio);
         setCommissions(prev => prev.map(c => c.numActa === numActa && c.dataComissio === dataComissio ? updatedCommission : c));
+        showToast("L'email s'ha marcat com a enviat.");
     } catch(error) {
         console.error("Failed to mark commission as sent", error);
-        showInfoModal('Error', 'No s\'ha pogut realitzar l\'acció.');
+        showToast('No s\'ha pogut realitzar l\'acció.', 'error');
     }
   }, []);
 
@@ -216,9 +241,10 @@ const App: React.FC = () => {
             ...prev,
             [list]: (prev[list] as AdminList[]).map(item => item.id === id ? { ...item, name, email } : item)
         }));
+        showToast('Element actualitzat.');
     } catch(error) {
         console.error(`Failed to update item in ${list}`, error);
-        showInfoModal('Error', 'No s\'ha pogut actualitzar l\'element.');
+        showToast('No s\'ha pogut actualitzar l\'element.', 'error');
     }
   };
 
@@ -230,9 +256,10 @@ const App: React.FC = () => {
             ...prev,
             [list]: (prev[list] as AdminList[]).filter(item => item.id !== id)
         }));
+        showToast('Element eliminat.');
     } catch(error) {
         console.error(`Failed to delete item from ${list}`, error);
-        showInfoModal('Error', 'No s\'ha pogut eliminar l\'element.');
+        showToast('No s\'ha pogut eliminar l\'element.', 'error');
     }
   };
 
@@ -244,9 +271,10 @@ const App: React.FC = () => {
             ...prev,
             [list]: [...(prev[list] as AdminList[]), newItem]
         }));
+        showToast('Element afegit.');
     } catch(error) {
         console.error(`Failed to add item to ${list}`, error);
-        showInfoModal('Error', 'No s\'ha pogut afegir l\'element.');
+        showToast('No s\'ha pogut afegir l\'element.', 'error');
     }
   };
 
@@ -257,9 +285,10 @@ const App: React.FC = () => {
             ...prev,
             users: prev.users.map(user => user.id === id ? { ...user, name, email } : user)
         }));
+        showToast('Usuari actualitzat.');
       } catch(error) {
           console.error("Failed to update user", error);
-          showInfoModal('Error', 'No s\'ha pogut actualitzar l\'usuari.');
+          showToast('No s\'ha pogut actualitzar l\'usuari.', 'error');
       }
   };
   const handleDeleteUser = async (id: string) => {
@@ -269,18 +298,20 @@ const App: React.FC = () => {
               ...prev,
               users: prev.users.filter(user => user.id !== id)
           }));
+          showToast('Usuari eliminat.');
       } catch(error) {
           console.error("Failed to delete user", error);
-          showInfoModal('Error', 'No s\'ha pogut eliminar l\'usuari.');
+          showToast('No s\'ha pogut eliminar l\'usuari.', 'error');
       }
   };
   const handleAddUser = async (name: string, email: string, password?: string) => {
       try {
         const newUser = await api.addUser(name, email, password);
         setAdminData(prev => ({...prev, users: [...prev.users, newUser]}));
+        showToast('Usuari afegit.');
       } catch(error) {
           console.error("Failed to add user", error);
-          showInfoModal('Error', 'No s\'ha pogut afegir l\'usuari.');
+          showToast('No s\'ha pogut afegir l\'usuari.', 'error');
       }
   };
 
@@ -288,10 +319,10 @@ const App: React.FC = () => {
     try {
         const updatedUsers = await api.importUsers(importedUsers);
         setAdminData(prev => ({ ...prev, users: updatedUsers }));
-        showInfoModal('Importació completada', 'La llista d\'usuaris s\'ha actualitzat correctament.');
+        showToast('La llista d\'usuaris s\'ha actualitzat correctament.');
     } catch(error) {
         console.error("Failed to import users", error);
-        showInfoModal('Error', 'No s\'ha pogut importar els usuaris.');
+        showToast('No s\'ha pogut importar els usuaris.', 'error');
     }
   };
 
@@ -311,10 +342,10 @@ const App: React.FC = () => {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         link.download = `backup_urbanisme_${timestamp}.json`;
         link.click();
-        showInfoModal('Exportació Correcta', 'La còpia de seguretat s\'ha descarregat correctament.');
+        showToast('La còpia de seguretat s\'ha descarregat correctament.');
     } catch (error) {
         console.error("Error exporting data:", error);
-        showInfoModal('Error', 'No s\'ha pogut exportar les dades.');
+        showToast('No s\'ha pogut exportar les dades.', 'error');
     }
   };
 
@@ -334,20 +365,20 @@ const App: React.FC = () => {
                 try {
                     const importedData = await api.importData(data);
                     loadState(importedData);
-                    showInfoModal('Importació Correcta', 'Les dades s\'han importat i carregat correctament.');
+                    showToast('Les dades s\'han importat i carregat correctament.');
                 } catch (error) {
                     console.error("Error importing data via API:", error);
-                    showInfoModal('Error d\'Importació', 'No s\'ha pogut desar les dades importades.');
+                    showToast('No s\'ha pogut desar les dades importades.', 'error');
                 }
             }
         });
       } catch (error) {
         console.error("Error parsing imported data:", error);
-        showInfoModal('Error d\'Importació', 'El fitxer seleccionat no és vàlid o està malmès.');
+        showToast('El fitxer seleccionat no és vàlid o està malmès.', 'error');
       }
     };
     reader.onerror = () => {
-        showInfoModal('Error de Lectura', 'No s\'ha pogut llegir el fitxer seleccionat.');
+        showToast('No s\'ha pogut llegir el fitxer seleccionat.', 'error');
     };
     reader.readAsText(file);
   };
@@ -365,10 +396,10 @@ const App: React.FC = () => {
           localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(newBackups));
           localStorage.setItem(`backup_${timestamp}`, JSON.stringify(currentState));
           setBackups(newBackups);
-          showInfoModal('Èxit', `S'ha creat el punt de restauració: ${newBackup.description}`);
+          showToast(`S'ha creat el punt de restauració: ${newBackup.description}`);
       } catch (error) {
           console.error("Error creating backup:", error);
-          showInfoModal('Error', 'No s\'ha pogut crear el punt de restauració. És possible que l\'emmagatzematge local estigui ple.');
+          showToast('No s\'ha pogut crear el punt de restauració.', 'error');
       }
   };
 
@@ -383,10 +414,10 @@ const App: React.FC = () => {
                   if (!backupDataString) throw new Error("Backup data not found");
                   const backupData = JSON.parse(backupDataString);
                   loadState(backupData);
-                  showInfoModal('Èxit', 'Les dades s\'han restaurat correctament.');
+                  showToast('Les dades s\'han restaurat correctament.');
               } catch (error) {
                   console.error("Error restoring backup:", error);
-                  showInfoModal('Error', 'No s\'ha pogut restaurar la còpia de seguretat.');
+                  showToast('No s\'ha pogut restaurar la còpia de seguretat.', 'error');
               }
           }
       });
@@ -403,10 +434,10 @@ const App: React.FC = () => {
                   localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(newBackups));
                   localStorage.removeItem(`backup_${timestamp}`);
                   setBackups(newBackups);
-                  showInfoModal('Eliminat', 'El punt de restauració s\'ha eliminat correctament.');
+                  showToast('El punt de restauració s\'ha eliminat correctament.');
               } catch (error) {
                   console.error("Error deleting backup:", error);
-                  showInfoModal('Error', 'No s\'ha pogut eliminar la còpia de seguretat.');
+                  showToast('No s\'ha pogut eliminar la còpia de seguretat.', 'error');
               }
           }
       });
@@ -425,10 +456,15 @@ const App: React.FC = () => {
     );
 
     const techCounts: { [key: string]: number } = {};
+    const reportStatusCounts: { [key: string]: number } = {};
+
     yearCommissionDetails.forEach(detail => {
       detail.expedients.forEach(expedient => {
         const technic = expedient.tecnic || 'No assignat';
         techCounts[technic] = (techCounts[technic] || 0) + 1;
+
+        const status = expedient.sentitInforme || 'Sense estat';
+        reportStatusCounts[status] = (reportStatusCounts[status] || 0) + 1;
       });
     });
 
@@ -436,6 +472,12 @@ const App: React.FC = () => {
       name: key,
       value: techCounts[key],
       fill: COLORS[index % COLORS.length],
+    }));
+
+    const reportStatusDistribution = Object.keys(reportStatusCounts).map((key, index) => ({
+      name: key,
+      value: reportStatusCounts[key],
+      fill: COLORS[(index + 2) % COLORS.length], // Offset colors
     }));
 
     const sortedYearCommissions = [...yearCommissions].sort((a, b) => {
@@ -504,7 +546,7 @@ const App: React.FC = () => {
     return {
       technicianDistribution,
       workloadOverTime,
-      reportStatusDistribution: [],
+      reportStatusDistribution,
       procedureTypeDistribution: [],
       monthlyWorkload: [],
       technicianWorkload,
@@ -517,8 +559,8 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-        <div className="flex items-center justify-center min-h-screen">
-            <div className="text-xl font-semibold text-gray-700">Carregant dades...</div>
+        <div className="flex items-center justify-center min-h-screen bg-[#f0e9f4] dark:bg-gray-900">
+            <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Carregant dades...</div>
         </div>
     );
   }
@@ -570,22 +612,25 @@ const App: React.FC = () => {
             onYearChange={handleYearChange}
             isFocusMode={isFocusMode}
             onToggleFocusMode={toggleFocusMode}
+            theme={theme}
+            toggleTheme={toggleTheme}
           />
         );
     }
   };
 
   return (
-    <div className="min-h-screen text-gray-800 p-4 lg:p-8 app-container">
+    <div className="min-h-screen text-gray-800 dark:text-gray-200 p-4 lg:p-8 app-container">
       {isFocusMode && (
         <button
           onClick={toggleFocusMode}
-          className="fixed top-4 right-4 z-50 bg-white/80 backdrop-blur-sm text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-white shadow-lg transition-all no-print animate-fade-in"
+          className="fixed top-4 right-4 z-50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-white dark:hover:bg-gray-700 shadow-lg transition-all no-print animate-fade-in"
           title="Sortir del Mode Focus"
         >
           &times; Sortir del Mode Focus
         </button>
       )}
+      <Toast toast={toast} onClose={hideToast} />
       <Modal 
         isOpen={modalState.isOpen}
         title={modalState.title}
@@ -595,7 +640,7 @@ const App: React.FC = () => {
       />
       {renderView()}
       {!isFocusMode && (
-        <footer className="text-center text-xs text-gray-500 pt-8 no-print">
+        <footer className="text-center text-xs text-gray-500 dark:text-gray-400 pt-8 no-print">
           <span>03/10/2025 9:44:12</span>
         </footer>
       )}

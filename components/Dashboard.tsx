@@ -1,11 +1,12 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
 import TechnicianWorkloadTable from './TechnicianWorkloadTable';
-import { CommissionSummary, StatisticsData } from '../types';
+import { CommissionSummary, StatisticsData, CommissionStatus } from '../types';
+import { RightArrowIcon } from './icons/Icons';
 
 interface DashboardProps {
   commissions: CommissionSummary[];
@@ -20,24 +21,60 @@ interface DashboardProps {
   onYearChange: (year: string) => void;
   isFocusMode: boolean;
   onToggleFocusMode: () => void;
+  theme: 'light' | 'dark';
+  toggleTheme: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ 
-  commissions, 
-  onSelectCommission, 
-  statistics, 
-  onUpdateCommission,
-  onMarkCommissionAsSent,
-  onNavigateToAdmin,
-  onGenerateCommissions,
-  availableYears,
-  selectedYear,
-  onYearChange,
-  isFocusMode,
-  onToggleFocusMode
-}) => {
+const Dashboard: React.FC<DashboardProps> = (props) => {
+  const { 
+    commissions, 
+    onSelectCommission, 
+    statistics, 
+    onUpdateCommission,
+    onMarkCommissionAsSent,
+    onNavigateToAdmin,
+    onGenerateCommissions,
+    availableYears,
+    selectedYear,
+    onYearChange,
+    isFocusMode,
+    onToggleFocusMode,
+    theme,
+    toggleTheme,
+  } = props;
+  
   const [isWorkloadTableVisible, setIsWorkloadTableVisible] = useState(false);
   const [isStatisticsVisible, setIsStatisticsVisible] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<CommissionStatus | 'all'>('all');
+  const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
+
+  const filteredAndSearchedCommissions = useMemo(() => {
+    return commissions
+      .filter(c => statusFilter === 'all' || c.estat === statusFilter)
+      .filter(c => 
+        c.numActa.toString().includes(searchTerm) || 
+        c.dataComissio.includes(searchTerm)
+      );
+  }, [commissions, searchTerm, statusFilter]);
+
+  const pendingCommissions = useMemo(() => {
+    return commissions
+      .filter(c => c.estat === 'Oberta')
+      .sort((a, b) => {
+        const dateA = new Date(a.dataComissio.split('/').reverse().join('-'));
+        const dateB = new Date(b.dataComissio.split('/').reverse().join('-'));
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(0, 4);
+  }, [commissions]);
+
+  const handleTechnicianSelect = (technicianName: string | null) => {
+    setSelectedTechnician(technicianName);
+    if(technicianName && !isWorkloadTableVisible) {
+        setIsWorkloadTableVisible(true);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -46,25 +83,67 @@ const Dashboard: React.FC<DashboardProps> = ({
           onNavigateToAdmin={onNavigateToAdmin} 
           onGenerateCommissions={onGenerateCommissions}
           onToggleFocusMode={onToggleFocusMode}
+          theme={theme}
+          toggleTheme={toggleTheme}
         />
       )}
       <main>
-        <div className="my-4 flex justify-end items-center space-x-2">
-            <label htmlFor="year-select" className="font-semibold text-gray-700">Seleccionar Any:</label>
+        {pendingCommissions.length > 0 && !isFocusMode && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg mb-8 animate-fade-in">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">Properes Comissions / Accions Pendents</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {pendingCommissions.map(c => (
+                <div key={`${c.numActa}-${c.dataComissio}`} 
+                  className="bg-yellow-50 dark:bg-yellow-900/50 border-l-4 border-yellow-400 p-4 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => onSelectCommission(c)}
+                >
+                  <div className="flex justify-between items-center">
+                    <p className="font-bold text-yellow-800 dark:text-yellow-300">Acta {c.numActa}</p>
+                    <span className="text-xs font-semibold bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100 px-2 py-1 rounded-full">{c.estat}</span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 font-medium">{c.dataComissio}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{c.diaSetmana}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        <div className="my-4 flex flex-col sm:flex-row justify-between items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
+          <div className="flex-grow w-full sm:w-auto">
+            <input 
+              type="text"
+              placeholder="Cerca per núm. d'acta o data..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="p-2 border rounded-md shadow-sm w-full focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            />
+          </div>
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+            >
+              <option value="all">Tots els estats</option>
+              <option value="Oberta">Oberta</option>
+              <option value="Finalitzada">Finalitzada</option>
+            </select>
             <select
               id="year-select"
               value={selectedYear}
               onChange={(e) => onYearChange(e.target.value)}
-              className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               {availableYears.map(year => (
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
+          </div>
         </div>
 
         <CommissionOverviewTable
-          commissions={commissions}
+          commissions={filteredAndSearchedCommissions}
           onSelectCommission={onSelectCommission}
           onUpdateCommission={onUpdateCommission}
           onMarkCommissionAsSent={onMarkCommissionAsSent}
@@ -85,9 +164,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
 
-        {isWorkloadTableVisible && <TechnicianWorkloadTable data={statistics.technicianWorkload} />}
+        {isWorkloadTableVisible && <TechnicianWorkloadTable data={statistics.technicianWorkload} selectedTechnician={selectedTechnician} onClearSelection={() => handleTechnicianSelect(null)} />}
 
-        {isStatisticsVisible && <StatisticsView statistics={statistics} />}
+        {isStatisticsVisible && <StatisticsView statistics={statistics} onTechnicianSelect={handleTechnicianSelect} theme={theme}/>}
       </main>
     </div>
   );

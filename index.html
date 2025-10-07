@@ -17,6 +17,11 @@
   }
 }
 </script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      }
+    </script>
     <style>
       @keyframes fadeIn {
         from { opacity: 0; }
@@ -64,7 +69,7 @@
       }
     </style>
 </head>
-  <body class="bg-[#f0e9f4]">
+  <body class="bg-[#f0e9f4] dark:bg-gray-900 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

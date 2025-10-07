@@ -119,3 +119,9 @@ export interface BackupRecord {
     timestamp: number;
     description: string;
 }
+
+export interface ToastMessage {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
+}
