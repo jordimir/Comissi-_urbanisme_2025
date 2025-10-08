@@ -7,15 +7,13 @@ import AdminView from './components/AdminView';
 import Modal from './components/Modal';
 import Toast from './components/Toast';
 import CommissionModal from './components/CommissionModal';
-// FIX: Import TechnicianWorkload type to resolve reference error.
-import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, ToastMessage, TechnicianWorkload } from './types';
+import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ToastMessage, TechnicianWorkload } from './types';
 import { adminData as initialAdminData } from './data';
 
 type View = 'dashboard' | 'detail' | 'admin';
 type Theme = 'light' | 'dark';
 
 const COLORS = ['#14b8a6', '#f97316', '#ef4444', '#8b5cf6', '#3b82f6', '#f43f5e', '#06b6d4', '#d946ef'];
-const BACKUP_STORAGE_KEY = 'urbanisme_backups';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('dashboard');
@@ -28,7 +26,6 @@ const App: React.FC = () => {
 
   const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: undefined as (() => void) | undefined });
   const [toast, setToast] = useState<ToastMessage | null>(null);
-  const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [theme, setTheme] = useState<Theme>('light');
 
@@ -64,18 +61,6 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    try {
-        const savedBackups = localStorage.getItem(BACKUP_STORAGE_KEY);
-        if (savedBackups) {
-            const parsedBackups = JSON.parse(savedBackups);
-            parsedBackups.sort((a: BackupRecord, b: BackupRecord) => b.timestamp - a.timestamp);
-            setBackups(parsedBackups);
-        }
-    } catch (error) {
-        console.error("Failed to load backups from localStorage", error);
-        setBackups([]);
-    }
-
     const fetchData = async () => {
         setIsLoading(true);
         try {
@@ -391,123 +376,6 @@ const App: React.FC = () => {
     }
   };
 
-  const getCurrentState = (): ApplicationData => ({ commissions, commissionDetails, adminData });
-  const loadState = (data: ApplicationData) => {
-    setCommissions(data.commissions || []);
-    setCommissionDetails(data.commissionDetails || []);
-    setAdminData(data.adminData || initialAdminData);
-  };
-
-  const handleExportData = () => {
-    try {
-        const data = getCurrentState();
-        const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(data, null, 2))}`;
-        const link = document.createElement("a");
-        link.href = jsonString;
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        link.download = `backup_urbanisme_${timestamp}.json`;
-        link.click();
-        showToast('La còpia de seguretat s\'ha descarregat correctament.');
-    } catch (error) {
-        console.error("Error exporting data:", error);
-        showToast('No s\'ha pogut exportar les dades.', 'error');
-    }
-  };
-
-  const handleImportData = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const text = e.target?.result;
-        if (typeof text !== 'string') throw new Error("File content is not readable");
-        const data = JSON.parse(text);
-
-        setModalState({
-            isOpen: true,
-            title: "Confirmar Importació",
-            message: "Estàs segur que vols substituir TOTES les dades actuals per les del fitxer? Aquesta acció no es pot desfer.",
-            onConfirm: async () => {
-                try {
-                    const importedData = await api.importData(data);
-                    loadState(importedData);
-                    showToast('Les dades s\'han importat i carregat correctament.');
-                } catch (error) {
-                    console.error("Error importing data via API:", error);
-                    showToast('No s\'ha pogut desar les dades importades.', 'error');
-                }
-            }
-        });
-      } catch (error) {
-        console.error("Error parsing imported data:", error);
-        showToast('El fitxer seleccionat no és vàlid o està malmès.', 'error');
-      }
-    };
-    reader.onerror = () => {
-        showToast('No s\'ha pogut llegir el fitxer seleccionat.', 'error');
-    };
-    reader.readAsText(file);
-  };
-  
-  const handleCreateBackup = () => {
-      const timestamp = Date.now();
-      const newBackup: BackupRecord = {
-          timestamp,
-          description: new Date(timestamp).toLocaleString('ca-ES')
-      };
-      const currentState = getCurrentState();
-
-      try {
-          const newBackups = [newBackup, ...backups];
-          localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(newBackups));
-          localStorage.setItem(`backup_${timestamp}`, JSON.stringify(currentState));
-          setBackups(newBackups);
-          showToast(`S'ha creat el punt de restauració: ${newBackup.description}`);
-      } catch (error) {
-          console.error("Error creating backup:", error);
-          showToast('No s\'ha pogut crear el punt de restauració.', 'error');
-      }
-  };
-
-  const handleRestoreBackup = (timestamp: number) => {
-      setModalState({
-          isOpen: true,
-          title: "Confirmar Restauració",
-          message: `Estàs segur que vols restaurar les dades al punt del ${new Date(timestamp).toLocaleString('ca-ES')}? Tots els canvis actuals no desats es perdran.`,
-          onConfirm: () => {
-              try {
-                  const backupDataString = localStorage.getItem(`backup_${timestamp}`);
-                  if (!backupDataString) throw new Error("Backup data not found");
-                  const backupData = JSON.parse(backupDataString);
-                  loadState(backupData);
-                  showToast('Les dades s\'han restaurat correctament.');
-              } catch (error) {
-                  console.error("Error restoring backup:", error);
-                  showToast('No s\'ha pogut restaurar la còpia de seguretat.', 'error');
-              }
-          }
-      });
-  };
-
-  const handleDeleteBackup = (timestamp: number) => {
-       setModalState({
-          isOpen: true,
-          title: "Confirmar Eliminació",
-          message: `Estàs segur que vols eliminar permanentment el punt de restauració del ${new Date(timestamp).toLocaleString('ca-ES')}?`,
-          onConfirm: () => {
-              try {
-                  const newBackups = backups.filter(b => b.timestamp !== timestamp);
-                  localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(newBackups));
-                  localStorage.removeItem(`backup_${timestamp}`);
-                  setBackups(newBackups);
-                  showToast('El punt de restauració s\'ha eliminat correctament.');
-              } catch (error) {
-                  console.error("Error deleting backup:", error);
-                  showToast('No s\'ha pogut eliminar la còpia de seguretat.', 'error');
-              }
-          }
-      });
-  };
-
   const filteredCommissions = useMemo(() => 
     commissions.filter(c => c.dataComissio.endsWith(selectedYear))
   , [commissions, selectedYear]);
@@ -654,12 +522,6 @@ const App: React.FC = () => {
                 onAddUser={handleAddUser}
                 onImportUsers={handleImportUsers}
                 onBack={handleBackToDashboard}
-                onExportData={handleExportData}
-                onImportData={handleImportData}
-                backups={backups}
-                onCreateBackup={handleCreateBackup}
-                onRestoreBackup={handleRestoreBackup}
-                onDeleteBackup={handleDeleteBackup}
             />
         );
       case 'dashboard':

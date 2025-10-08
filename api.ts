@@ -6,7 +6,8 @@ import {
     adminData as initialAdminData 
 } from './data';
 
-// Simulate a database in memory
+// In-memory database, initialized with default data.
+// When a real backend is implemented, this will be replaced with API calls.
 let db: ApplicationData = {
     commissions: JSON.parse(JSON.stringify(initialCommissions)),
     commissionDetails: JSON.parse(JSON.stringify(initialCommissionDetails)),
@@ -343,10 +344,4 @@ export const importUsers = async (importedUsers: User[]): Promise<User[]> => {
 
     db.adminData.users = Array.from(usersMap.values());
     return JSON.parse(JSON.stringify(db.adminData.users));
-};
-
-export const importData = async (data: ApplicationData): Promise<ApplicationData> => {
-    await delay();
-    db = JSON.parse(JSON.stringify(data));
-    return db;
 };

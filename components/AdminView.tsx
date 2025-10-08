@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { AdminData, AdminList, User, BackupRecord } from '../types';
-import { AdminIcon, DownloadIcon, UploadIcon, SaveIcon, RestoreIcon, TrashIcon } from './icons/Icons';
+import { AdminData, AdminList, User } from '../types';
+import { AdminIcon } from './icons/Icons';
 
 interface AdminListManagerProps {
   title: string;
@@ -272,79 +272,6 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
   );
 };
 
-interface DataManagementProps {
-    onExportData: () => void;
-    onImportData: (file: File) => void;
-    backups: BackupRecord[];
-    onCreateBackup: () => void;
-    onRestoreBackup: (timestamp: number) => void;
-    onDeleteBackup: (timestamp: number) => void;
-}
-
-const DataManagement: React.FC<DataManagementProps> = ({ onExportData, onImportData, backups, onCreateBackup, onRestoreBackup, onDeleteBackup }) => {
-    const importFileRef = useRef<HTMLInputElement>(null);
-
-    const handleImportClick = () => {
-        importFileRef.current?.click();
-    };
-
-    const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            onImportData(file);
-        }
-        if(event.target) event.target.value = '';
-    };
-
-    return (
-        <div className="col-span-1 md:col-span-2 lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                <h3 className="font-bold text-lg text-gray-700 dark:text-gray-200 mb-4">Importar / Exportar</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Descarrega una còpia de seguretat completa de totes les dades en format JSON, o carrega un fitxer per restaurar l'estat de l'aplicació.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <button onClick={onExportData} className="flex-1 flex items-center justify-center bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500">
-                        <DownloadIcon />
-                        Exportar Còpia de Seguretat
-                    </button>
-                    <button onClick={handleImportClick} className="flex-1 flex items-center justify-center bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500">
-                        <UploadIcon />
-                        Importar Còpia de Seguretat
-                    </button>
-                    <input type="file" ref={importFileRef} onChange={handleFileSelected} accept=".json" className="hidden" />
-                </div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-                <h3 className="font-bold text-lg text-gray-700 dark:text-gray-200 mb-4">Punts de Restauració (Local)</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Crea punts de restauració desats al teu navegador. Això no crea un fitxer descarregable.
-                </p>
-                <button onClick={onCreateBackup} className="w-full flex items-center justify-center bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-purple-500">
-                    <SaveIcon />
-                    Crear Punt de Restauració Ara
-                </button>
-                <div className="mt-4 pt-4 border-t dark:border-gray-700 max-h-48 overflow-y-auto">
-                    {backups.length > 0 ? (
-                        backups.map(backup => (
-                            <div key={backup.timestamp} className="flex justify-between items-center p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700">
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{backup.description}</span>
-                                <div className="flex items-center space-x-2">
-                                    <button onClick={() => onRestoreBackup(backup.timestamp)} title="Restaurar" className="p-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 rounded"><RestoreIcon/></button>
-                                    <button onClick={() => onDeleteBackup(backup.timestamp)} title="Eliminar" className="p-1 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-500 rounded"><TrashIcon/></button>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">No hi ha punts de restauració.</p>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
 interface AdminViewProps {
   adminData: AdminData;
   onUpdate: (list: keyof AdminData, id: string, name: string, email?: string) => void;
@@ -355,16 +282,10 @@ interface AdminViewProps {
   onAddUser: (name: string, email: string, password?: string) => void;
   onImportUsers: (users: User[]) => void;
   onBack: () => void;
-  onExportData: () => void;
-  onImportData: (file: File) => void;
-  backups: BackupRecord[];
-  onCreateBackup: () => void;
-  onRestoreBackup: (timestamp: number) => void;
-  onDeleteBackup: (timestamp: number) => void;
 }
 
 const AdminView: React.FC<AdminViewProps> = (props) => {
-  const { adminData, onUpdate, onDelete, onAdd, onUpdateUser, onDeleteUser, onAddUser, onImportUsers, onBack, ...dataManagementProps } = props;
+  const { adminData, onUpdate, onDelete, onAdd, onUpdateUser, onDeleteUser, onAddUser, onImportUsers, onBack } = props;
   
   return (
     <div className="space-y-8 animate-fade-in">
@@ -387,7 +308,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         </header>
 
         <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <DataManagement {...dataManagementProps} />
             <AdminListManager 
                 title="Procediments"
                 items={adminData.procediments}
