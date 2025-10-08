@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as api from './api';
 import Dashboard from './components/Dashboard';
@@ -112,7 +111,9 @@ const App: React.FC = () => {
   };
 
   const handleGenerateNextYearCommissions = useCallback(async () => {
-    const lastYear = Math.max(...commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10)));
+    const lastYear = commissions.length > 0
+        ? Math.max(...commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10)))
+        : new Date().getFullYear();
     const nextYear = lastYear + 1;
     
     setModalState({
@@ -135,12 +136,12 @@ const App: React.FC = () => {
 
   const handleSelectCommission = useCallback(async (commission: CommissionSummary) => {
       try {
-        const detail = await api.getCommissionDetail(commission.numActa);
+        const detail = await api.getCommissionDetail(commission.numActa, commission.dataComissio);
         if (detail) {
             setCommissionDetails(prev => {
-                const exists = prev.some(d => d.numActa === detail.numActa);
+                const exists = prev.some(d => d.numActa === detail.numActa && d.sessio === detail.sessio);
                 if (exists) {
-                    return prev.map(d => d.numActa === detail.numActa ? detail : d);
+                    return prev.map(d => (d.numActa === detail.numActa && d.sessio === detail.sessio) ? detail : d);
                 }
                 return [...prev, detail];
             });
@@ -164,26 +165,28 @@ const App: React.FC = () => {
     setView('admin');
   }, []);
 
-  const getCommissionDetail = (actaId: number): CommissionDetail | undefined => {
-    return commissionDetails.find(detail => detail.numActa === actaId);
+  const getCommissionDetail = (actaId: number, commissionDate: string): CommissionDetail | undefined => {
+    const year = commissionDate.split('/')[2];
+    return commissionDetails.find(detail => detail.numActa === actaId && detail.sessio.endsWith(`/${year}`));
   };
 
   const handleSaveCommissionDetails = async (updatedDetail: CommissionDetail) => {
     try {
         const savedDetail = await api.saveCommissionDetails(updatedDetail);
+        const savedDetailYear = savedDetail.sessio.split('/')[2];
         
         setCommissionDetails(prevDetails => {
             const newDetails = prevDetails.map(detail =>
-                detail.numActa === savedDetail.numActa ? savedDetail : detail
+                (detail.numActa === savedDetail.numActa && detail.sessio.endsWith(`/${savedDetailYear}`)) ? savedDetail : detail
             );
-            if (!prevDetails.some(d => d.numActa === savedDetail.numActa)) {
+            if (!prevDetails.some(d => d.numActa === savedDetail.numActa && d.sessio.endsWith(`/${savedDetailYear}`))) {
                 newDetails.push(savedDetail);
             }
             return newDetails;
         });
 
          setCommissions(prevSummaries => prevSummaries.map(summary => 
-            summary.numActa === savedDetail.numActa ? { 
+            (summary.numActa === savedDetail.numActa && summary.dataComissio.endsWith(`/${savedDetailYear}`)) ? { 
               ...summary, 
               numTemes: savedDetail.expedients.length,
               dataComissio: savedDetail.sessio,
@@ -571,7 +574,7 @@ const App: React.FC = () => {
       case 'detail':
         return (
           <CommissionDetailView
-            commissionDetail={selectedCommission ? getCommissionDetail(selectedCommission.numActa) : undefined}
+            commissionDetail={selectedCommission ? getCommissionDetail(selectedCommission.numActa, selectedCommission.dataComissio) : undefined}
             onBack={handleBackToDashboard}
             onSave={handleSaveCommissionDetails}
             adminData={adminData}

@@ -38,14 +38,16 @@ export const getApplicationData = async (): Promise<ApplicationData> => {
     return JSON.parse(JSON.stringify(db));
 };
 
-export const getCommissionDetail = async (actaId: number): Promise<CommissionDetail | undefined> => {
+export const getCommissionDetail = async (actaId: number, commissionDate: string): Promise<CommissionDetail | undefined> => {
     await delay();
-    let detail = db.commissionDetails.find(d => d.numActa === actaId);
+    const year = commissionDate.split('/')[2];
+    let detail = db.commissionDetails.find(d => d.numActa === actaId && d.sessio.endsWith(`/${year}`));
+
     if (detail) {
         return JSON.parse(JSON.stringify(detail));
     }
 
-    const commissionSummary = db.commissions.find(c => c.numActa === actaId);
+    const commissionSummary = db.commissions.find(c => c.numActa === actaId && c.dataComissio === commissionDate);
     if (commissionSummary && commissionSummary.estat === 'Oberta') {
         const newDetail: CommissionDetail = {
             numActa: actaId,
@@ -68,8 +70,9 @@ export const getCommissionDetail = async (actaId: number): Promise<CommissionDet
 export const saveCommissionDetails = async (updatedDetail: CommissionDetail): Promise<CommissionDetail> => {
     await delay();
     let found = false;
+    const updatedYear = updatedDetail.sessio.split('/')[2];
     db.commissionDetails = db.commissionDetails.map(detail => {
-        if (detail.numActa === updatedDetail.numActa) {
+        if (detail.numActa === updatedDetail.numActa && detail.sessio.endsWith(`/${updatedYear}`)) {
             found = true;
             return updatedDetail;
         }
@@ -81,14 +84,14 @@ export const saveCommissionDetails = async (updatedDetail: CommissionDetail): Pr
 
     // Also update the summary
     db.commissions = db.commissions.map(summary => 
-        summary.numActa === updatedDetail.numActa ? { 
-            ...summary, 
-            numTemes: updatedDetail.expedients.length,
-            dataComissio: updatedDetail.sessio,
-            estat: updatedDetail.estat,
-            diaSetmana: getDayOfWeekCatalan(updatedDetail.sessio),
+        (summary.numActa === updatedDetail.numActa && summary.dataComissio.endsWith(`/${updatedYear}`)) ? { 
+          ...summary, 
+          numTemes: updatedDetail.expedients.length,
+          dataComissio: updatedDetail.sessio,
+          estat: updatedDetail.estat,
+          diaSetmana: getDayOfWeekCatalan(updatedDetail.sessio),
         } : summary
-    );
+      );
     
     return JSON.parse(JSON.stringify(updatedDetail));
 };
@@ -129,11 +132,16 @@ export const markCommissionAsSent = async (numActa: number, dataComissio: string
 
 export const generateNextYearCommissions = async (): Promise<CommissionSummary[]> => {
     await delay();
-    const lastYear = Math.max(...db.commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10)));
+    const commissionYears = db.commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10));
+    const lastYear = commissionYears.length > 0 ? Math.max(...commissionYears) : new Date().getFullYear();
     const nextYear = lastYear + 1;
+
+    if (db.commissions.some(c => c.dataComissio.endsWith(`/${nextYear}`))) {
+        throw new Error(`Commissions for ${nextYear} already exist.`);
+    }
     
     const newCommissions: CommissionSummary[] = [];
-    let lastActaNum = Math.max(...db.commissions.map(c => c.numActa));
+    let actaCounter = 0;
     
     const date = new Date(nextYear, 0, 1);
     while (date.getDay() !== 3) { // Find the first Wednesday
@@ -141,9 +149,9 @@ export const generateNextYearCommissions = async (): Promise<CommissionSummary[]
     }
     
     while (date.getFullYear() === nextYear) {
-      lastActaNum++;
+      actaCounter++;
       const newCommission: CommissionSummary = {
-        numActa: lastActaNum,
+        numActa: actaCounter,
         numTemes: 0,
         diaSetmana: 'dimecres',
         dataComissio: date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'numeric', year: 'numeric'}),
