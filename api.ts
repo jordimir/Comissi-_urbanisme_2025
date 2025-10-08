@@ -1,3 +1,4 @@
+
 import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList } from './types';
 import { 
     commissions as initialCommissions, 
@@ -137,19 +138,20 @@ export const generateNextYearCommissions = async (): Promise<CommissionSummary[]
     const nextYear = lastYear + 1;
 
     if (db.commissions.some(c => c.dataComissio.endsWith(`/${nextYear}`))) {
-        throw new Error(`Commissions for ${nextYear} already exist.`);
+        throw new Error(`Les comissions per a l'any ${nextYear} ja existeixen.`);
     }
     
     const newCommissions: CommissionSummary[] = [];
-    let actaCounter = 0;
+    let actaCounter = 1; // Start numbering at 1 for the new year.
     
     const date = new Date(nextYear, 0, 1);
-    while (date.getDay() !== 3) { // Find the first Wednesday
+    // Find the first Wednesday of the year
+    while (date.getDay() !== 3) { 
       date.setDate(date.getDate() + 1);
     }
     
+    // Generate commissions every two weeks (on Wednesdays)
     while (date.getFullYear() === nextYear) {
-      actaCounter++;
       const newCommission: CommissionSummary = {
         numActa: actaCounter,
         numTemes: 0,
@@ -160,11 +162,103 @@ export const generateNextYearCommissions = async (): Promise<CommissionSummary[]
         estat: 'Oberta'
       };
       newCommissions.push(newCommission);
+      actaCounter++;
       date.setDate(date.getDate() + 14);
     }
     
-    db.commissions = [...db.commissions, ...newCommissions];
+    db.commissions = [...db.commissions, ...newCommissions].sort((a,b) => {
+        const [dayA, monthA, yearA] = a.dataComissio.split('/').map(Number);
+        const [dayB, monthB, yearB] = b.dataComissio.split('/').map(Number);
+        const dateA = new Date(yearA, monthA - 1, dayA);
+        const dateB = new Date(yearB, monthB - 1, dayB);
+        if(dateA.getTime() === dateB.getTime()) return a.numActa - b.numActa;
+        return dateA.getTime() - dateB.getTime();
+    });
+    
     return JSON.parse(JSON.stringify(newCommissions));
+};
+
+export const addCommission = async (commissionData: { dataComissio: string, numActa: number }): Promise<CommissionSummary> => {
+    await delay();
+    const year = commissionData.dataComissio.split('/')[2];
+    const commissionsInYear = db.commissions.filter(c => c.dataComissio.endsWith(`/${year}`));
+
+    if (commissionsInYear.some(c => c.numActa === commissionData.numActa)) {
+        throw new Error(`El número d'acta ${commissionData.numActa} ja existeix per a l'any ${year}.`);
+    }
+
+    const newCommission: CommissionSummary = {
+        numActa: commissionData.numActa,
+        dataComissio: commissionData.dataComissio,
+        diaSetmana: getDayOfWeekCatalan(commissionData.dataComissio),
+        numTemes: 0,
+        estat: 'Oberta',
+        avisEmail: false,
+        dataEmail: null
+    };
+
+    db.commissions.push(newCommission);
+    // Keep it sorted
+    db.commissions.sort((a,b) => {
+        const [dayA, monthA, yearA] = a.dataComissio.split('/').map(Number);
+        const [dayB, monthB, yearB] = b.dataComissio.split('/').map(Number);
+        const dateA = new Date(yearA, monthA - 1, dayA);
+        const dateB = new Date(yearB, monthB - 1, dayB);
+        if(dateA.getTime() === dateB.getTime()) return a.numActa - b.numActa;
+        return dateA.getTime() - dateB.getTime();
+    });
+
+    return JSON.parse(JSON.stringify(newCommission));
+};
+
+export const updateCommission = async (originalNumActa: number, originalDataComissio: string, updatedData: { numActa: number, dataComissio: string }): Promise<CommissionSummary> => {
+    await delay();
+
+    const originalYear = originalDataComissio.split('/')[2];
+    const updatedYear = updatedData.dataComissio.split('/')[2];
+    
+    const isChangingKey = originalNumActa !== updatedData.numActa || originalDataComissio !== updatedData.dataComissio;
+
+    if (isChangingKey) {
+        const conflict = db.commissions.find(c => c.numActa === updatedData.numActa && c.dataComissio.endsWith(`/${updatedYear}`));
+        if (conflict) {
+            throw new Error(`Ja existeix una comissió amb el número d'acta ${updatedData.numActa} per a l'any ${updatedYear}.`);
+        }
+    }
+
+    let commissionToUpdate: CommissionSummary | undefined;
+    db.commissions = db.commissions.map(c => {
+        if(c.numActa === originalNumActa && c.dataComissio === originalDataComissio) {
+            commissionToUpdate = {
+                ...c,
+                numActa: updatedData.numActa,
+                dataComissio: updatedData.dataComissio,
+                diaSetmana: getDayOfWeekCatalan(updatedData.dataComissio),
+            };
+            return commissionToUpdate;
+        }
+        return c;
+    });
+    
+    if (!commissionToUpdate) {
+        throw new Error("No s'ha trobat la comissió per actualitzar.");
+    }
+    
+    let detailToUpdate = db.commissionDetails.find(d => d.numActa === originalNumActa && d.sessio.endsWith(`/${originalYear}`));
+    if (detailToUpdate) {
+        detailToUpdate.numActa = updatedData.numActa;
+        detailToUpdate.sessio = updatedData.dataComissio;
+    }
+
+    return JSON.parse(JSON.stringify(commissionToUpdate));
+};
+
+export const deleteCommission = async (numActa: number, dataComissio: string): Promise<void> => {
+    await delay();
+    const year = dataComissio.split('/')[2];
+    
+    db.commissions = db.commissions.filter(c => !(c.numActa === numActa && c.dataComissio === dataComissio));
+    db.commissionDetails = db.commissionDetails.filter(d => !(d.numActa === numActa && d.sessio.endsWith(`/${year}`)));
 };
 
 

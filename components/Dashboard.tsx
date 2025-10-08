@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
@@ -23,6 +22,9 @@ interface DashboardProps {
   onToggleFocusMode: () => void;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  onAddCommission: () => void;
+  onEditCommission: (commission: CommissionSummary) => void;
+  onDeleteCommission: (commission: CommissionSummary) => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = (props) => {
@@ -41,6 +43,9 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     onToggleFocusMode,
     theme,
     toggleTheme,
+    onAddCommission,
+    onEditCommission,
+    onDeleteCommission,
   } = props;
   
   const [isWorkloadTableVisible, setIsWorkloadTableVisible] = useState(false);
@@ -139,6 +144,13 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
+             <button
+              onClick={onAddCommission}
+              className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500"
+              title="Afegir nova comissió"
+            >
+              + Afegir
+            </button>
           </div>
         </div>
 
@@ -147,6 +159,8 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           onSelectCommission={onSelectCommission}
           onUpdateCommission={onUpdateCommission}
           onMarkCommissionAsSent={onMarkCommissionAsSent}
+          onEditCommission={onEditCommission}
+          onDeleteCommission={onDeleteCommission}
         />
 
         <div className="my-6 flex justify-center gap-4 no-print">

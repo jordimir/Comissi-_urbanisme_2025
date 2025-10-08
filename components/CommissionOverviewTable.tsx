@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { CommissionSummary, CommissionStatus } from '../types';
 import { DotsVerticalIcon, EmailIcon } from './icons/Icons';
@@ -9,6 +8,8 @@ interface CommissionOverviewTableProps {
   onSelectCommission: (commission: CommissionSummary) => void;
   onUpdateCommission: (numActa: number, dataComissio: string, field: keyof CommissionSummary, value: any) => void;
   onMarkCommissionAsSent: (numActa: number, dataComissio: string) => void;
+  onEditCommission: (commission: CommissionSummary) => void;
+  onDeleteCommission: (commission: CommissionSummary) => void;
 }
 
 const CommissionStatusPill: React.FC<{ status: 'Finalitzada' | 'Oberta' }> = ({ status }) => {
@@ -19,7 +20,14 @@ const CommissionStatusPill: React.FC<{ status: 'Finalitzada' | 'Oberta' }> = ({ 
   return <span className={`${baseClasses} ${statusClasses}`}>{status}</span>;
 };
 
-const ActionsMenu: React.FC<{ commission: CommissionSummary; onUpdate: Function; onMarkAsSent: Function; onSelect: Function }> = ({ commission, onUpdate, onMarkAsSent, onSelect }) => {
+const ActionsMenu: React.FC<{ 
+    commission: CommissionSummary; 
+    onUpdate: Function; 
+    onMarkAsSent: Function; 
+    onSelect: Function;
+    onEdit: Function;
+    onDelete: Function;
+}> = ({ commission, onUpdate, onMarkAsSent, onSelect, onEdit, onDelete }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -45,21 +53,17 @@ const ActionsMenu: React.FC<{ commission: CommissionSummary; onUpdate: Function;
       </button>
       {isOpen && (
         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-20 border dark:border-gray-700 animate-fade-in">
-          <ul className="py-1">
-            <li><button onClick={() => { onSelect(commission); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Veure Detalls</button></li>
+          <ul className="py-1 text-sm text-gray-700 dark:text-gray-200">
+            <li><button onClick={() => { onSelect(commission); setIsOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">Veure Detalls</button></li>
+            <li><button onClick={() => { onEdit(commission); setIsOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">Editar</button></li>
+            
+            <li className="border-t border-gray-200 dark:border-gray-700 my-1"></li>
+
             {commission.estat === 'Oberta' && (
-              <>
-                <li className="px-4 py-2">
-                  <select onChange={handleStatusChange} value={commission.estat} className="w-full text-sm text-gray-700 dark:text-gray-200 bg-transparent focus:outline-none">
-                    <option value="Oberta">Oberta</option>
-                    <option value="Finalitzada">Finalitzada</option>
-                  </select>
-                </li>
-                <li><button onClick={() => { onMarkAsSent(commission.numActa, commission.dataComissio); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Marcar com a Enviada</button></li>
-              </>
+               <li><button onClick={() => { onMarkAsSent(commission.numActa, commission.dataComissio); setIsOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">Marcar com a Enviada</button></li>
             )}
              <li>
-                <label className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                <label className="flex items-center px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
                     <input
                         type="checkbox"
                         checked={commission.avisEmail}
@@ -69,6 +73,16 @@ const ActionsMenu: React.FC<{ commission: CommissionSummary; onUpdate: Function;
                     Avis per Email
                 </label>
             </li>
+             <li className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <label htmlFor={`status-select-${commission.numActa}`} className="text-xs text-gray-500">Canviar Estat</label>
+                  <select id={`status-select-${commission.numActa}`} onChange={handleStatusChange} value={commission.estat} className="w-full bg-transparent focus:outline-none dark:bg-gray-800">
+                    <option value="Oberta">Oberta</option>
+                    <option value="Finalitzada">Finalitzada</option>
+                  </select>
+             </li>
+
+            <li className="border-t border-gray-200 dark:border-gray-700 my-1"></li>
+            <li><button onClick={() => { onDelete(commission); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 font-semibold hover:bg-red-50 dark:hover:bg-red-900/50">Eliminar</button></li>
           </ul>
         </div>
       )}
@@ -76,7 +90,7 @@ const ActionsMenu: React.FC<{ commission: CommissionSummary; onUpdate: Function;
   );
 };
 
-const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commissions, onSelectCommission, onUpdateCommission, onMarkCommissionAsSent }) => {
+const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commissions, onSelectCommission, onUpdateCommission, onMarkCommissionAsSent, onEditCommission, onDeleteCommission }) => {
 
   const groupedCommissions = useMemo(() => {
     const groups: { [key: string]: CommissionSummary[] } = {};
@@ -155,6 +169,8 @@ const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commi
                                     onUpdate={onUpdateCommission}
                                     onMarkAsSent={onMarkCommissionAsSent}
                                     onSelect={onSelectCommission}
+                                    onEdit={onEditCommission}
+                                    onDelete={onDeleteCommission}
                                 />
                             </div>
                        </div>

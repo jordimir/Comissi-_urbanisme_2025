@@ -6,6 +6,7 @@ import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
 import Modal from './components/Modal';
 import Toast from './components/Toast';
+import CommissionModal from './components/CommissionModal';
 // FIX: Import TechnicianWorkload type to resolve reference error.
 import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ApplicationData, BackupRecord, ToastMessage, TechnicianWorkload } from './types';
 import { adminData as initialAdminData } from './data';
@@ -30,6 +31,9 @@ const App: React.FC = () => {
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [theme, setTheme] = useState<Theme>('light');
+
+  const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false);
+  const [editingCommission, setEditingCommission] = useState<CommissionSummary | null>(null);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
@@ -138,17 +142,18 @@ const App: React.FC = () => {
       try {
         const detail = await api.getCommissionDetail(commission.numActa, commission.dataComissio);
         if (detail) {
+            const detailYear = detail.sessio.split('/')[2];
             setCommissionDetails(prev => {
-                const exists = prev.some(d => d.numActa === detail.numActa && d.sessio === detail.sessio);
+                const exists = prev.some(d => d.numActa === detail.numActa && d.sessio.split('/')[2] === detailYear);
                 if (exists) {
-                    return prev.map(d => (d.numActa === detail.numActa && d.sessio === detail.sessio) ? detail : d);
+                    return prev.map(d => (d.numActa === detail.numActa && d.sessio.split('/')[2] === detailYear) ? detail : d);
                 }
                 return [...prev, detail];
             });
             setSelectedCommission(commission);
             setView('detail');
         } else {
-             showToast(`No s'han trobat detalls per a la comissió ${commission.numActa}.`, 'error');
+             showToast(`No s'han trobat detalls per a la comissió ${commission.numActa} de l'any ${commission.dataComissio.split('/')[2]}.`, 'error');
         }
       } catch (error) {
         console.error("Failed to fetch commission details", error);
@@ -236,6 +241,62 @@ const App: React.FC = () => {
         showToast('No s\'ha pogut realitzar l\'acció.', 'error');
     }
   }, []);
+
+  const handleOpenAddCommissionModal = () => {
+    setEditingCommission(null);
+    setIsCommissionModalOpen(true);
+  };
+
+  const handleOpenEditCommissionModal = (commission: CommissionSummary) => {
+      setEditingCommission(commission);
+      setIsCommissionModalOpen(true);
+  };
+
+  const handleCloseCommissionModal = () => {
+      setIsCommissionModalOpen(false);
+      setEditingCommission(null);
+  };
+
+  const handleSaveCommission = async (
+      commissionData: { numActa: number, dataComissio: string },
+      originalData?: { numActa: number, dataComissio: string }
+  ) => {
+      try {
+          if (originalData) {
+              await api.updateCommission(originalData.numActa, originalData.dataComissio, commissionData);
+          } else {
+              await api.addCommission(commissionData);
+          }
+          const fullData = await api.getApplicationData();
+          setCommissions(fullData.commissions);
+          setCommissionDetails(fullData.commissionDetails);
+          showToast(`La comissió s'ha ${originalData ? 'actualitzat' : 'creat'} correctament.`);
+          handleCloseCommissionModal();
+      } catch (error: any) {
+          console.error("Failed to save commission", error);
+          showToast(error.message || 'No s\'ha pogut guardar la comissió.', 'error');
+      }
+  };
+
+  const handleDeleteCommission = (commission: CommissionSummary) => {
+      setModalState({
+          isOpen: true,
+          title: 'Eliminar Comissió',
+          message: `Estàs segur que vols eliminar la comissió núm. ${commission.numActa} del ${commission.dataComissio}? Aquesta acció eliminarà també els expedients associats i no es pot desfer.`,
+          onConfirm: async () => {
+              try {
+                  await api.deleteCommission(commission.numActa, commission.dataComissio);
+                  const year = commission.dataComissio.split('/')[2];
+                  setCommissions(prev => prev.filter(c => !(c.numActa === commission.numActa && c.dataComissio === commission.dataComissio)));
+                  setCommissionDetails(prev => prev.filter(d => !(d.numActa === commission.numActa && d.sessio.endsWith(`/${year}`))));
+                  showToast('La comissió s\'ha eliminat correctament.');
+              } catch (error) {
+                  console.error("Failed to delete commission", error);
+                  showToast('No s\'ha pogut eliminar la comissió.', 'error');
+              }
+          }
+      });
+  };
 
   const handleUpdateAdminItem = async (list: keyof AdminData, id: string, name: string, email?: string) => {
     if (list === 'users') return;
@@ -619,6 +680,9 @@ const App: React.FC = () => {
             onToggleFocusMode={toggleFocusMode}
             theme={theme}
             toggleTheme={toggleTheme}
+            onAddCommission={handleOpenAddCommissionModal}
+            onEditCommission={handleOpenEditCommissionModal}
+            onDeleteCommission={handleDeleteCommission}
           />
         );
     }
@@ -642,6 +706,13 @@ const App: React.FC = () => {
         message={modalState.message}
         onClose={closeModal}
         onConfirm={modalState.onConfirm}
+      />
+      <CommissionModal 
+        isOpen={isCommissionModalOpen}
+        onClose={handleCloseCommissionModal}
+        onSave={handleSaveCommission}
+        commission={editingCommission}
+        selectedYear={selectedYear}
       />
       {renderView()}
     </div>
