@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, User } from '../types';
 import ExpedientTable from './ExpedientTable';
@@ -5,6 +6,7 @@ import { ClockIcon, WarningIcon, FocusIcon } from './icons/Icons';
 import EmailPreviewModal from './EmailPreviewModal';
 // Fix: Use GoogleGenAI instead of the deprecated GoogleGenerativeAI
 import { GoogleGenAI } from "@google/genai";
+import { logger } from '../logger';
 
 interface CommissionDetailViewProps {
     commissionDetail: CommissionDetail;
@@ -166,11 +168,14 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
 
     const handleGenerateAISummary = async () => {
         if (!process.env.API_KEY) {
-            setAiSummary("La clau API de Gemini no està configurada.");
+            const message = "La clau API de Gemini no està configurada.";
+            setAiSummary(message);
+            logger.warn('Gemini API key is not configured.');
             return;
         }
         setIsAiLoading(true);
         setAiSummary('');
+        logger.info('Generating AI summary.', { numActa: editedDetail.numActa });
 
         try {
             const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
@@ -188,9 +193,10 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
             
             const text = response.text;
             setAiSummary(text);
+            logger.info('AI summary generated successfully.', { numActa: editedDetail.numActa });
 
         } catch (error) {
-            console.error("Error generating AI summary:", error);
+            logger.error("Error generating AI summary:", { error, numActa: editedDetail.numActa });
             setAiSummary("S'ha produït un error en generar el resum. Si us plau, intenta-ho de nou.");
         } finally {
             setIsAiLoading(false);

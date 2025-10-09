@@ -1,9 +1,11 @@
-import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList, DeletedCommissionPayload } from './types';
+
+import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList, DeletedCommissionPayload, CommissionStatus } from './types';
 import { 
     commissions as initialCommissions, 
     commissionDetails as initialCommissionDetails, 
     adminData as initialAdminData 
 } from './data';
+import { logger } from './logger';
 
 const DB_STORAGE_KEY = 'urbanisme_commission_data';
 const SESSION_STORAGE_KEY = 'urbanisme_session_user';
@@ -18,7 +20,7 @@ const _saveDb = () => {
         const serializedDb = JSON.stringify(db);
         localStorage.setItem(DB_STORAGE_KEY, serializedDb);
     } catch (error) {
-        console.error("Failed to save data to localStorage", error);
+        logger.error("Failed to save data to localStorage", { error });
     }
 };
 
@@ -30,7 +32,7 @@ const _loadDb = (): ApplicationData | null => {
         }
         return JSON.parse(serializedDb);
     } catch (error) {
-        console.error("Failed to load data from localStorage", error);
+        logger.error("Failed to load data from localStorage", { error });
         return null;
     }
 };
@@ -41,6 +43,7 @@ const initializeDb = () => {
         db = loadedDb;
     } else {
         // Initialize with default data if nothing in localStorage
+        logger.info('No data found in localStorage, initializing with default data.');
         db = {
             commissions: JSON.parse(JSON.stringify(initialCommissions)),
             commissionDetails: JSON.parse(JSON.stringify(initialCommissionDetails)),
@@ -97,7 +100,7 @@ export const getCurrentUser = async (): Promise<User | null> => {
         }
         return JSON.parse(serializedUser);
     } catch (error) {
-        console.error("Failed to load user from sessionStorage", error);
+        logger.error("Failed to load user from sessionStorage", { error });
         return null;
     }
 };
@@ -161,7 +164,8 @@ export const saveCommissionDetails = async (updatedDetail: CommissionDetail): Pr
           ...summary, 
           numTemes: updatedDetail.expedients.length,
           dataComissio: updatedDetail.sessio,
-          estat: updatedDetail.estat,
+          // FIX: Cast 'updatedDetail.estat' to 'CommissionStatus' to resolve type mismatch between CommissionDetail (string) and CommissionSummary ('Oberta' | 'Finalitzada').
+          estat: updatedDetail.estat as CommissionStatus,
           diaSetmana: getDayOfWeekCatalan(updatedDetail.sessio),
         } : summary
       );

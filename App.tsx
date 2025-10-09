@@ -20,6 +20,7 @@ import {
   DeletedCommissionPayload
 } from './types';
 import * as api from './api';
+import { logger } from './logger';
 import { SunIcon, MoonIcon } from './components/icons/Icons';
 
 type View = 'dashboard' | 'detail' | 'admin';
@@ -68,10 +69,11 @@ const App: React.FC = () => {
         const user = await api.getCurrentUser();
         setCurrentUser(user);
         if (user) {
+          logger.info('Active session found for user.', { userId: user.id, email: user.email });
           fetchData();
         }
       } catch (error) {
-        console.error(error);
+        logger.error('Failed to check for current user session.', { error });
       } finally {
         setLoading(false);
       }
@@ -84,7 +86,9 @@ const App: React.FC = () => {
       setLoading(true);
       const appData = await api.getApplicationData();
       setData(appData);
+      logger.info('Application data loaded successfully.');
     } catch (error) {
+      logger.error('Failed to fetch application data.', { error });
       showToast('Error en carregar les dades', 'error');
     } finally {
       setLoading(false);
@@ -155,7 +159,7 @@ const App: React.FC = () => {
     const technicianWorkload: TechnicianWorkload = {
       headers: [], technicians: [], data: {}, rowTotals: {}, columnTotals: [], grandTotal: 0
     };
-    // Fix: Explicitly type 'technicians' as string[] to prevent TypeScript from inferring it as 'unknown[]' in strict mode, which was causing multiple downstream index-related type errors.
+    // FIX: Explicitly typed 'technicians' as string[] to prevent TypeScript from inferring it as 'unknown[]' in strict mode, which was causing multiple downstream index-related type errors.
     const technicians: string[] = Array.from(new Set(allExpedientsForYear.map(e => e.tecnic))).sort();
     technicianWorkload.technicians = technicians;
     technicians.forEach(t => {
@@ -214,8 +218,10 @@ const App: React.FC = () => {
       const user = await api.login(email, password);
       setCurrentUser(user);
       await fetchData();
+      logger.info('User login successful.', { userId: user.id, email: user.email });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error d'inici de sessió";
+      logger.error('User login failed.', { email, error });
       setLoginError(errorMessage);
     }
   };
@@ -225,10 +231,12 @@ const App: React.FC = () => {
       title: 'Tancar Sessió',
       message: 'Estàs segur que vols tancar la sessió?',
       onConfirm: async () => {
+        const userId = currentUser?.id;
         await api.logout();
         setCurrentUser(null);
         setData(null);
         setCurrentView('dashboard');
+        logger.info('User logout successful.', { userId });
       }
     });
   };
@@ -242,9 +250,12 @@ const App: React.FC = () => {
         setSelectedCommission(commission);
         setCurrentView('detail');
       } else {
-        showToast(`No s'han trobat detalls per a l'acta ${commission.numActa}`, 'error');
+        const message = `No s'han trobat detalls per a l'acta ${commission.numActa}`;
+        logger.warn('Commission details not found.', { numActa: commission.numActa, dataComissio: commission.dataComissio });
+        showToast(message, 'error');
       }
     } catch (error) {
+      logger.error("Error loading commission details.", { numActa: commission.numActa, dataComissio: commission.dataComissio, error });
       showToast("Error en carregar els detalls de la comissió", 'error');
     } finally {
       setLoading(false);
@@ -264,7 +275,9 @@ const App: React.FC = () => {
           )
         };
       });
+      logger.info('Commission summary updated.', { numActa, dataComissio, field, value });
     } catch (error) {
+      logger.error('Failed to update commission summary.', { numActa, dataComissio, field, value, error });
       showToast("Error en actualitzar la comissió", 'error');
     } finally {
         setIsSaving(false);
@@ -285,7 +298,9 @@ const App: React.FC = () => {
         };
       });
       showToast("Comissió marcada com a enviada.");
+      logger.info('Commission marked as sent.', { numActa, dataComissio });
     } catch (error) {
+      logger.error('Failed to mark commission as sent.', { numActa, dataComissio, error });
       showToast("Error en marcar la comissió", 'error');
     } finally {
         setIsSaving(false);
@@ -323,7 +338,9 @@ const App: React.FC = () => {
       setCommissionDetail(savedDetail);
       showToast("Canvis desats correctament.");
       setCurrentView('dashboard');
+      logger.info('Commission details saved.', { numActa: detail.numActa, sessio: detail.sessio });
     } catch (error) {
+      logger.error('Failed to save commission details.', { numActa: detail.numActa, sessio: detail.sessio, error });
       showToast("Error en desar els canvis", 'error');
     } finally {
       setIsSaving(false);
@@ -341,8 +358,10 @@ const App: React.FC = () => {
           setData(prevData => prevData ? { ...prevData, commissions: [...prevData.commissions, ...newCommissions] } : null);
           await fetchData();
           showToast(`S'han generat ${newCommissions.length} comissions.`, 'success');
+          logger.info('New year commissions generated.', { count: newCommissions.length });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Error desconegut";
+          logger.error('Failed to generate commissions.', { error });
           showToast(errorMessage, 'error');
         } finally {
             setIsSaving(false);
@@ -367,7 +386,9 @@ const App: React.FC = () => {
         await api.restoreCommission(payload);
         await fetchData();
         showToast("S'ha desfet l'eliminació.", 'success');
+        logger.info('Commission restored.', { numActa: payload.summary.numActa, dataComissio: payload.summary.dataComissio });
     } catch (error) {
+        logger.error('Failed to restore commission.', { payload, error });
         showToast("Error en desfer l'eliminació", 'error');
     } finally {
         setIsSaving(false);
@@ -386,7 +407,9 @@ const App: React.FC = () => {
                 showToast('Comissió eliminada correctament.', 'success', () => {
                     handleRestoreCommission(deletedPayload);
                 });
+                logger.info('Commission deleted.', { numActa: commission.numActa, dataComissio: commission.dataComissio });
             } catch (error) {
+                logger.error('Failed to delete commission.', { numActa: commission.numActa, dataComissio: commission.dataComissio, error });
                 showToast('Error en eliminar la comissió', 'error');
             } finally {
                 setIsSaving(false);
@@ -401,15 +424,18 @@ const App: React.FC = () => {
         if (commissionToEdit) {
             await api.updateCommission(commissionToEdit.numActa, commissionToEdit.dataComissio, data);
             showToast('Comissió actualitzada correctament.');
+            logger.info('Commission updated.', { originalNumActa: commissionToEdit.numActa, updatedNumActa: data.numActa });
         } else {
             await api.addCommission(data);
             showToast('Comissió afegida correctament.');
+            logger.info('New commission added.', { numActa: data.numActa, dataComissio: data.dataComissio });
         }
         await fetchData();
         setIsCommissionModalOpen(false);
         setCommissionToEdit(null);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "S'ha produït un error";
+        logger.error('Failed to save commission.', { commissionData: data, editing: !!commissionToEdit, error });
         showToast(errorMessage, 'error');
     } finally {
         setIsSaving(false);
@@ -418,52 +444,48 @@ const App: React.FC = () => {
   
   // --- Admin Handlers ---
 
-  const handleAdminUpdate = async (action: () => Promise<any>) => {
+  const handleAdminUpdate = async (action: () => Promise<any>, actionName: string, context: object = {}) => {
     setIsSaving(true);
     try {
-        await action();
+        const result = await action();
         await fetchData();
+        logger.info(`Admin action '${actionName}' successful.`, context);
+        return result;
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Ha ocorregut un error';
+        logger.error(`Admin action '${actionName}' failed.`, { ...context, error });
         showToast(message, 'error');
+        throw error; // Re-throw to be caught by specific handlers if needed
     } finally {
         setIsSaving(false);
     }
   };
   
   const handleRestoreAdminItem = async (list: ListKey, item: AdminList) => {
-    await handleAdminUpdate(() => api.restoreAdminItem(list, item));
+    await handleAdminUpdate(() => api.restoreAdminItem(list, item), 'restoreAdminItem', { list, itemId: item.id });
     showToast("S'ha desfet l'eliminació.", 'success');
   };
 
   const handleDeleteAdminItem = (list: ListKey) => async (id: string) => {
-    setIsSaving(true);
     try {
-        const deletedItem = await api.deleteAdminItem(list, id);
-        await fetchData();
-        showToast('Element eliminat.', 'success', () => handleRestoreAdminItem(list, deletedItem));
+      const deletedItem = await handleAdminUpdate(() => api.deleteAdminItem(list, id), 'deleteAdminItem', { list, id });
+      showToast('Element eliminat.', 'success', () => handleRestoreAdminItem(list, deletedItem));
     } catch (error) {
-        showToast("Error en eliminar l'element", 'error');
-    } finally {
-        setIsSaving(false);
+      // Error is already logged and shown in handleAdminUpdate
     }
   };
   
   const handleRestoreUser = async (user: User) => {
-    await handleAdminUpdate(() => api.restoreUser(user));
+    await handleAdminUpdate(() => api.restoreUser(user), 'restoreUser', { userId: user.id });
     showToast("S'ha desfet l'eliminació de l'usuari.", 'success');
   };
 
   const handleDeleteUser = async (id: string) => {
-    setIsSaving(true);
     try {
-        const deletedUser = await api.deleteUser(id);
-        await fetchData();
-        showToast('Usuari eliminat.', 'success', () => handleRestoreUser(deletedUser));
+      const deletedUser = await handleAdminUpdate(() => api.deleteUser(id), 'deleteUser', { id });
+      showToast('Usuari eliminat.', 'success', () => handleRestoreUser(deletedUser));
     } catch (error) {
-        showToast("Error en eliminar l'usuari", 'error');
-    } finally {
-        setIsSaving(false);
+      // Error is already logged and shown in handleAdminUpdate
     }
   };
 
@@ -535,11 +557,11 @@ const App: React.FC = () => {
                 <AdminView
                     adminData={data.adminData}
                     onBack={() => setCurrentView('dashboard')}
-                    onAddItem={(list) => (item) => handleAdminUpdate(() => api.addAdminItem(list, item.name, item.email))}
-                    onUpdateItem={(list) => (item) => handleAdminUpdate(() => api.updateAdminItem(list, item.id, item.name, item.email))}
+                    onAddItem={(list) => (item) => handleAdminUpdate(() => api.addAdminItem(list, item.name, item.email), 'addAdminItem', { list, name: item.name })}
+                    onUpdateItem={(list) => (item) => handleAdminUpdate(() => api.updateAdminItem(list, item.id, item.name, item.email), 'updateAdminItem', { list, id: item.id })}
                     onDeleteItem={handleDeleteAdminItem}
-                    onAddUser={(user) => handleAdminUpdate(() => api.addUser(user.name, user.email, user.role, user.password))}
-                    onUpdateUser={(user) => handleAdminUpdate(() => api.updateUser(user.id, user.name, user.email, user.role, user.password))}
+                    onAddUser={(user) => handleAdminUpdate(() => api.addUser(user.name, user.email, user.role, user.password), 'addUser', { name: user.name, role: user.role })}
+                    onUpdateUser={(user) => handleAdminUpdate(() => api.updateUser(user.id, user.name, user.email, user.role, user.password), 'updateUser', { id: user.id, name: user.name })}
                     onDeleteUser={handleDeleteUser}
                     isSaving={isSaving}
                 />
