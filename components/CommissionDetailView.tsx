@@ -3,6 +3,7 @@ import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, User
 import ExpedientTable from './ExpedientTable';
 import { ClockIcon, WarningIcon, FocusIcon } from './icons/Icons';
 import EmailPreviewModal from './EmailPreviewModal';
+// Fix: Use GoogleGenAI instead of the deprecated GoogleGenerativeAI
 import { GoogleGenAI } from "@google/genai";
 
 interface CommissionDetailViewProps {
@@ -164,7 +165,6 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
     };
 
     const handleGenerateAISummary = async () => {
-        // Fix: Use process.env.API_KEY as per guidelines
         if (!process.env.API_KEY) {
             setAiSummary("La clau API de Gemini no està configurada.");
             return;
@@ -173,7 +173,6 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
         setAiSummary('');
 
         try {
-            // Fix: Use new GoogleGenAI({apiKey: ...}) as per guidelines
             const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
 
             const expedientsText = editedDetail.expedients.map(e => 
@@ -182,13 +181,11 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
             
             const prompt = `Ets un assistent administratiu expert en urbanisme per a l'ajuntament de Tossa de Mar. Analitza la següent llista d'expedients de la comissió del dia ${editedDetail.sessio} i genera un resum concís en català. El resum ha de ser un pargraf breu que destaqui els punts més importants, com ara el nombre total d'expedients, els tipus de procediments més comuns, la proporció d'informes favorables i desfavorables, i qualsevol projecte de gran rellevància si n'hi ha. No facis una llista, sinó un text cohesionat. Expedeints:\n${expedientsText}`;
             
-            // Fix: Use ai.models.generateContent and correct model name as per guidelines
             const response = await ai.models.generateContent({
               model: 'gemini-2.5-flash',
               contents: prompt,
             });
             
-            // Fix: Use response.text to get the output as per guidelines
             const text = response.text;
             setAiSummary(text);
 

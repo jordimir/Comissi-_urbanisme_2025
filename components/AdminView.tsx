@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { AdminData, AdminList, User } from '../types';
-import * as api from '../api';
 import { PencilIcon, TrashIcon, CheckIcon, XIcon, AdminIcon } from './icons/Icons';
 
 type ListKey = keyof Omit<AdminData, 'users'>;
@@ -12,7 +11,7 @@ interface EditableListProps<T extends AdminList | User> {
     onDelete: (id: string) => void;
     onAdd: (item: Omit<T, 'id'>) => void;
     fields: (keyof T)[];
-    fieldLabels: Record<keyof T, string>;
+    fieldLabels: Record<string, string>;
     itemType: ListKey | 'users';
     isSaving: boolean;
 }
@@ -47,6 +46,9 @@ const EditableListItem: React.FC<{
                                 <option value="viewer">Viewer</option>
                             </select>
                         }
+                         if (field === 'password') {
+                            return <input key={field} type="password" placeholder={fieldLabels[field]} value={editedItem[field] || ''} onChange={e => setEditedItem({...editedItem, [field]: e.target.value})} className="p-1 border rounded bg-transparent dark:bg-gray-700 dark:border-gray-600" />
+                        }
                         return <input key={field} type="text" placeholder={fieldLabels[field]} value={editedItem[field] || ''} onChange={e => setEditedItem({...editedItem, [field]: e.target.value})} className="p-1 border rounded bg-transparent dark:bg-gray-700 dark:border-gray-600" />
                     })}
                     <div className="flex items-center gap-2">
@@ -72,7 +74,7 @@ const EditableListItem: React.FC<{
 };
 
 
-const EditableList: React.FC<EditableListProps<any>> = ({ title, items, onSave, onDelete, onAdd, fields, fieldLabels, itemType, isSaving }) => {
+const EditableList: React.FC<EditableListProps<any>> = ({ title, items, onSave, onDelete, onAdd, fields, fieldLabels, isSaving }) => {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
     const newItemBase = fields.reduce((acc, field) => ({ ...acc, [field]: '' }), {});
@@ -133,31 +135,22 @@ const EditableList: React.FC<EditableListProps<any>> = ({ title, items, onSave, 
 interface AdminViewProps {
   adminData: AdminData;
   onBack: () => void;
-  onAdminAction: (action: () => Promise<any>) => void;
+  onAddItem: (list: ListKey) => (item: { name: string, email?: string }) => void;
+  onUpdateItem: (list: ListKey) => (item: AdminList) => void;
+  onDeleteItem: (list: ListKey) => (id: string) => void;
+  onAddUser: (user: Omit<User, 'id'>) => void;
+  onUpdateUser: (user: User) => void;
+  onDeleteUser: (id: string) => void;
   isSaving: boolean;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ adminData, onBack, onAdminAction, isSaving }) => {
-
-    const handleSaveItem = (list: ListKey) => (item: AdminList) => {
-        onAdminAction(() => api.updateAdminItem(list, item.id, item.name, item.email));
-    };
-    const handleDeleteItem = (list: ListKey) => (id: string) => {
-        onAdminAction(() => api.deleteAdminItem(list, id));
-    };
-    const handleAddItem = (list: ListKey) => (item: { name: string, email?: string }) => {
-        onAdminAction(() => api.addAdminItem(list, item.name, item.email));
-    };
-
-    const handleSaveUser = (user: User) => {
-        onAdminAction(() => api.updateUser(user.id, user.name, user.email, user.role, user.password));
-    };
-     const handleDeleteUser = (id: string) => {
-        onAdminAction(() => api.deleteUser(id));
-    };
-    const handleAddUser = (user: Omit<User, 'id'>) => {
-        onAdminAction(() => api.addUser(user.name, user.email, user.role, user.password));
-    };
+const AdminView: React.FC<AdminViewProps> = (props) => {
+    const { 
+        adminData, onBack, 
+        onAddItem, onUpdateItem, onDeleteItem,
+        onAddUser, onUpdateUser, onDeleteUser,
+        isSaving 
+    } = props;
     
   return (
     <div className="space-y-6 animate-fade-in">
@@ -167,12 +160,12 @@ const AdminView: React.FC<AdminViewProps> = ({ adminData, onBack, onAdminAction,
         </header>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <EditableList title="Procediments" items={adminData.procediments} onSave={handleSaveItem('procediments')} onDelete={handleDeleteItem('procediments')} onAdd={handleAddItem('procediments')} fields={['name']} fieldLabels={{ name: 'Nom del Procediment' }} itemType="procediments" isSaving={isSaving}/>
-            <EditableList title="Sentit dels Informes" items={adminData.sentitInformes} onSave={handleSaveItem('sentitInformes')} onDelete={handleDeleteItem('sentitInformes')} onAdd={handleAddItem('sentitInformes')} fields={['name']} fieldLabels={{ name: 'Nom del Sentit' }} itemType="sentitInformes" isSaving={isSaving}/>
-            <EditableList title="Departaments" items={adminData.departaments} onSave={handleSaveItem('departaments')} onDelete={handleDeleteItem('departaments')} onAdd={handleAddItem('departaments')} fields={['name']} fieldLabels={{ name: 'Nom del Departament' }} itemType="departaments" isSaving={isSaving}/>
-            <EditableList title="Tècnics" items={adminData.tecnics} onSave={handleSaveItem('tecnics')} onDelete={handleDeleteItem('tecnics')} onAdd={handleAddItem('tecnics')} fields={['name', 'email']} fieldLabels={{ name: 'Nom', email: 'Email' }} itemType="tecnics" isSaving={isSaving}/>
-            <EditableList title="Regidors" items={adminData.regidors} onSave={handleSaveItem('regidors')} onDelete={handleDeleteItem('regidors')} onAdd={handleAddItem('regidors')} fields={['name', 'email']} fieldLabels={{ name: 'Nom', email: 'Email' }} itemType="regidors" isSaving={isSaving}/>
-            <EditableList title="Usuaris" items={adminData.users} onSave={handleSaveUser} onDelete={handleDeleteUser} onAdd={handleAddUser} fields={['name', 'email', 'role', 'password']} fieldLabels={{ name: 'Nom', email: 'Email', role: 'Rol', password: 'Contrasenya (opcional)' }} itemType="users" isSaving={isSaving}/>
+            <EditableList title="Procediments" items={adminData.procediments} onSave={onUpdateItem('procediments')} onDelete={onDeleteItem('procediments')} onAdd={onAddItem('procediments')} fields={['name']} fieldLabels={{ name: 'Nom del Procediment' }} itemType="procediments" isSaving={isSaving}/>
+            <EditableList title="Sentit dels Informes" items={adminData.sentitInformes} onSave={onUpdateItem('sentitInformes')} onDelete={onDeleteItem('sentitInformes')} onAdd={onAddItem('sentitInformes')} fields={['name']} fieldLabels={{ name: 'Nom del Sentit' }} itemType="sentitInformes" isSaving={isSaving}/>
+            <EditableList title="Departaments" items={adminData.departaments} onSave={onUpdateItem('departaments')} onDelete={onDeleteItem('departaments')} onAdd={onAddItem('departaments')} fields={['name']} fieldLabels={{ name: 'Nom del Departament' }} itemType="departaments" isSaving={isSaving}/>
+            <EditableList title="Tècnics" items={adminData.tecnics} onSave={onUpdateItem('tecnics')} onDelete={onDeleteItem('tecnics')} onAdd={onAddItem('tecnics')} fields={['name', 'email']} fieldLabels={{ name: 'Nom', email: 'Email' }} itemType="tecnics" isSaving={isSaving}/>
+            <EditableList title="Regidors" items={adminData.regidors} onSave={onUpdateItem('regidors')} onDelete={onDeleteItem('regidors')} onAdd={onAddItem('regidors')} fields={['name', 'email']} fieldLabels={{ name: 'Nom', email: 'Email' }} itemType="regidors" isSaving={isSaving}/>
+            <EditableList title="Usuaris" items={adminData.users} onSave={onUpdateUser} onDelete={onDeleteUser} onAdd={onAddUser} fields={['name', 'email', 'role', 'password']} fieldLabels={{ name: 'Nom', email: 'Email', role: 'Rol', password: 'Contrasenya (opcional)' }} itemType="users" isSaving={isSaving}/>
         </div>
     </div>
   );

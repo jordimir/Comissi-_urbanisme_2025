@@ -1,13 +1,8 @@
 
-
-export type CommissionStatus = 'Finalitzada' | 'Oberta';
-export type ReportStatus = 'Favorable' | 'Desfavorable' | 'Favorable condicionat (mixte)' | 'Caducat/Arxivat' | 'Requeriment' | 'Posar en consideració';
+export type CommissionStatus = 'Oberta' | 'Finalitzada';
+export type ReportStatus = 'Favorable' | 'Desfavorable' | 'Favorable condicionat (mixte)' | 'Posar en consideració' | 'Caducat/Arxivat' | 'Requeriment';
+export type UserRole = 'admin' | 'editor' | 'viewer';
 export type SortDirection = 'asc' | 'desc';
-
-export interface SortConfig {
-  key: keyof Expedient;
-  direction: SortDirection;
-}
 
 export interface CommissionSummary {
   numActa: number;
@@ -32,14 +27,40 @@ export interface Expedient {
 }
 
 export interface CommissionDetail {
+  numActa: number;
   sessio: string;
   dataActual: string;
   hora: string;
-  estat: CommissionStatus;
+  estat: CommissionStatus | string;
   mitja: string;
-  numActa: number;
   expedientsCount: number;
   expedients: Expedient[];
+}
+
+export interface AdminList {
+    id: string;
+    name: string;
+    email?: string;
+}
+
+export interface User extends AdminList {
+    password?: string;
+    role: UserRole;
+}
+
+export interface AdminData {
+  procediments: AdminList[];
+  sentitInformes: AdminList[];
+  tecnics: AdminList[];
+  departaments: AdminList[];
+  regidors: AdminList[];
+  users: User[];
+}
+
+export interface ApplicationData {
+  commissions: CommissionSummary[];
+  commissionDetails: CommissionDetail[];
+  adminData: AdminData;
 }
 
 export interface TechnicianStat {
@@ -59,21 +80,11 @@ export interface ReportStatusStat {
     fill: string;
 }
 
-export interface ProcedureTypeStat {
-    name: string;
-    'Tipus': number;
-}
-
-export interface MonthlyWorkloadStat {
-    month: string;
-    'Expedients': number;
-}
-
 export interface TechnicianWorkload {
-    headers: { date: string; isFuture: boolean }[];
+    headers: { date: string, isFuture: boolean }[];
     technicians: string[];
-    data: Record<string, Record<string, number>>;
-    rowTotals: Record<string, number>;
+    data: { [technician: string]: { [date: string]: number } };
+    rowTotals: { [technician: string]: number };
     columnTotals: number[];
     grandTotal: number;
 }
@@ -82,43 +93,24 @@ export interface StatisticsData {
     technicianDistribution: TechnicianStat[];
     workloadOverTime: WorkloadStat[];
     reportStatusDistribution: ReportStatusStat[];
-    procedureTypeDistribution: ProcedureTypeStat[];
-    monthlyWorkload: MonthlyWorkloadStat[];
+    procedureTypeDistribution: any[];
+    monthlyWorkload: any[];
     technicianWorkload: TechnicianWorkload;
 }
 
-export interface AdminList {
-  id: string;
-  name: string;
-  email?: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  password?: string;
-  role: 'admin' | 'editor' | 'viewer';
-}
-
-export interface AdminData {
-  procediments: AdminList[];
-  sentitInformes: AdminList[];
-  tecnics: AdminList[];
-  departaments: AdminList[];
-  regidors: AdminList[];
-  users: User[];
-}
-
-export interface ApplicationData {
-  commissions: CommissionSummary[];
-  commissionDetails: CommissionDetail[];
-  adminData: AdminData;
-}
-
 export interface ToastMessage {
-  id: number;
-  message: string;
-  type: 'success' | 'error';
-  onUndo?: () => void;
+    id: number;
+    message: string;
+    type: 'success' | 'error';
+    onUndo?: () => void;
+}
+
+export interface SortConfig {
+    key: keyof Expedient;
+    direction: SortDirection;
+}
+
+export interface DeletedCommissionPayload {
+    summary: CommissionSummary;
+    detail: CommissionDetail | null;
 }

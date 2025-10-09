@@ -16,7 +16,8 @@ import {
   User,
   TechnicianWorkload,
   CommissionStatus,
-  AdminList
+  AdminList,
+  DeletedCommissionPayload
 } from './types';
 import * as api from './api';
 import { SunIcon, MoonIcon } from './components/icons/Icons';
@@ -360,6 +361,19 @@ const App: React.FC = () => {
     setIsCommissionModalOpen(true);
   };
 
+  const handleRestoreCommission = async (payload: DeletedCommissionPayload) => {
+    setIsSaving(true);
+    try {
+        await api.restoreCommission(payload);
+        await fetchData();
+        showToast("S'ha desfet l'eliminació.", 'success');
+    } catch (error) {
+        showToast("Error en desfer l'eliminació", 'error');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   const handleDeleteCommission = (commission: CommissionSummary) => {
     setModal({
         title: 'Eliminar Comissió',
@@ -367,9 +381,11 @@ const App: React.FC = () => {
         onConfirm: async () => {
             setIsSaving(true);
             try {
-                await api.deleteCommission(commission.numActa, commission.dataComissio);
+                const deletedPayload = await api.deleteCommission(commission.numActa, commission.dataComissio);
                 await fetchData();
-                showToast('Comissió eliminada correctament.');
+                showToast('Comissió eliminada correctament.', 'success', () => {
+                    handleRestoreCommission(deletedPayload);
+                });
             } catch (error) {
                 showToast('Error en eliminar la comissió', 'error');
             } finally {
@@ -400,7 +416,9 @@ const App: React.FC = () => {
     }
   };
   
-  const handleAdminAction = async (action: () => Promise<any>) => {
+  // --- Admin Handlers ---
+
+  const handleAdminUpdate = async (action: () => Promise<any>) => {
     setIsSaving(true);
     try {
         await action();
@@ -408,6 +426,42 @@ const App: React.FC = () => {
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Ha ocorregut un error';
         showToast(message, 'error');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+  
+  const handleRestoreAdminItem = async (list: ListKey, item: AdminList) => {
+    await handleAdminUpdate(() => api.restoreAdminItem(list, item));
+    showToast("S'ha desfet l'eliminació.", 'success');
+  };
+
+  const handleDeleteAdminItem = (list: ListKey) => async (id: string) => {
+    setIsSaving(true);
+    try {
+        const deletedItem = await api.deleteAdminItem(list, id);
+        await fetchData();
+        showToast('Element eliminat.', 'success', () => handleRestoreAdminItem(list, deletedItem));
+    } catch (error) {
+        showToast("Error en eliminar l'element", 'error');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+  
+  const handleRestoreUser = async (user: User) => {
+    await handleAdminUpdate(() => api.restoreUser(user));
+    showToast("S'ha desfet l'eliminació de l'usuari.", 'success');
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    setIsSaving(true);
+    try {
+        const deletedUser = await api.deleteUser(id);
+        await fetchData();
+        showToast('Usuari eliminat.', 'success', () => handleRestoreUser(deletedUser));
+    } catch (error) {
+        showToast("Error en eliminar l'usuari", 'error');
     } finally {
         setIsSaving(false);
     }
@@ -481,7 +535,12 @@ const App: React.FC = () => {
                 <AdminView
                     adminData={data.adminData}
                     onBack={() => setCurrentView('dashboard')}
-                    onAdminAction={handleAdminAction}
+                    onAddItem={(list) => (item) => handleAdminUpdate(() => api.addAdminItem(list, item.name, item.email))}
+                    onUpdateItem={(list) => (item) => handleAdminUpdate(() => api.updateAdminItem(list, item.id, item.name, item.email))}
+                    onDeleteItem={handleDeleteAdminItem}
+                    onAddUser={(user) => handleAdminUpdate(() => api.addUser(user.name, user.email, user.role, user.password))}
+                    onUpdateUser={(user) => handleAdminUpdate(() => api.updateUser(user.id, user.name, user.email, user.role, user.password))}
+                    onDeleteUser={handleDeleteUser}
                     isSaving={isSaving}
                 />
             )}

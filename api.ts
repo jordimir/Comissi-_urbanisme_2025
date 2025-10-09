@@ -1,5 +1,4 @@
-
-import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList } from './types';
+import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList, DeletedCommissionPayload } from './types';
 import { 
     commissions as initialCommissions, 
     commissionDetails as initialCommissionDetails, 
@@ -332,12 +331,44 @@ export const updateCommission = async (originalNumActa: number, originalDataComi
     return JSON.parse(JSON.stringify(commissionToUpdate));
 };
 
-export const deleteCommission = async (numActa: number, dataComissio: string): Promise<void> => {
+export const deleteCommission = async (numActa: number, dataComissio: string): Promise<DeletedCommissionPayload> => {
     await delay();
     const year = dataComissio.split('/')[2];
     
+    const summaryToDelete = db.commissions.find(c => c.numActa === numActa && c.dataComissio === dataComissio);
+    if (!summaryToDelete) throw new Error("Commission summary not found for deletion");
+    
+    const detailToDelete = db.commissionDetails.find(d => d.numActa === numActa && d.sessio.endsWith(`/${year}`)) || null;
+
+    const payload: DeletedCommissionPayload = {
+        summary: JSON.parse(JSON.stringify(summaryToDelete)),
+        detail: detailToDelete ? JSON.parse(JSON.stringify(detailToDelete)) : null,
+    };
+    
     db.commissions = db.commissions.filter(c => !(c.numActa === numActa && c.dataComissio === dataComissio));
-    db.commissionDetails = db.commissionDetails.filter(d => !(d.numActa === numActa && d.sessio.endsWith(`/${year}`)));
+    if (detailToDelete) {
+        db.commissionDetails = db.commissionDetails.filter(d => !(d.numActa === numActa && d.sessio.endsWith(`/${year}`)));
+    }
+    
+    _saveDb();
+    return payload;
+};
+
+export const restoreCommission = async (payload: DeletedCommissionPayload): Promise<void> => {
+    await delay();
+    db.commissions.push(payload.summary);
+     db.commissions.sort((a,b) => {
+        const [dayA, monthA, yearA] = a.dataComissio.split('/').map(Number);
+        const [dayB, monthB, yearB] = b.dataComissio.split('/').map(Number);
+        const dateA = new Date(yearA, monthA - 1, dayA);
+        const dateB = new Date(yearB, monthB - 1, dayB);
+        if(dateA.getTime() === dateB.getTime()) return a.numActa - b.numActa;
+        return dateA.getTime() - dateB.getTime();
+    });
+
+    if (payload.detail) {
+        db.commissionDetails.push(payload.detail);
+    }
     _saveDb();
 };
 
@@ -353,12 +384,21 @@ export const updateAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: 
     return { id, name, email };
 };
 
-export const deleteAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: string) => {
+export const deleteAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: string): Promise<AdminList> => {
     await delay();
     const adminList = db.adminData[list] as AdminList[];
+    const itemToDelete = adminList.find(item => item.id === id);
+    if (!itemToDelete) throw new Error("Item not found for deletion");
+    
     db.adminData[list] = adminList.filter(item => item.id !== id) as any;
     _saveDb();
-    return { success: true };
+    return itemToDelete;
+};
+
+export const restoreAdminItem = async (list: keyof Omit<AdminData, 'users'>, item: AdminList): Promise<void> => {
+    await delay();
+    (db.adminData[list] as AdminList[]).push(item);
+    _saveDb();
 };
 
 export const addAdminItem = async (list: keyof Omit<AdminData, 'users'>, name: string, email?: string) => {
@@ -389,11 +429,19 @@ export const updateUser = async (id: string, name: string, email: string, role: 
     return { id, name, email, role };
 };
 
-export const deleteUser = async (id: string) => {
+export const deleteUser = async (id: string): Promise<User> => {
     await delay();
+    const userToDelete = db.adminData.users.find(user => user.id === id);
+    if (!userToDelete) throw new Error("User not found for deletion");
     db.adminData.users = db.adminData.users.filter(user => user.id !== id);
     _saveDb();
-    return { success: true };
+    return userToDelete;
+};
+
+export const restoreUser = async (user: User): Promise<void> => {
+    await delay();
+    db.adminData.users.push(user);
+    _saveDb();
 };
 
 export const addUser = async (name: string, email: string, role: User['role'], password?: string) => {
