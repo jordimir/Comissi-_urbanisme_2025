@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
@@ -27,6 +26,7 @@ interface DashboardProps {
   onDeleteCommission: (commission: CommissionSummary) => void;
   currentUser: User;
   onLogout: () => void;
+  isSaving: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = (props) => {
@@ -50,6 +50,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     onDeleteCommission,
     currentUser,
     onLogout,
+    isSaving
   } = props;
   
   const [isWorkloadTableVisible, setIsWorkloadTableVisible] = useState(false);
@@ -98,6 +99,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           toggleTheme={toggleTheme}
           currentUser={currentUser}
           onLogout={onLogout}
+          isSaving={isSaving}
         />
       )}
       <main>
@@ -130,6 +132,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="p-2 border rounded-md shadow-sm w-full focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              disabled={isSaving}
             />
           </div>
           <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -137,6 +140,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              disabled={isSaving}
             >
               <option value="all">Tots els estats</option>
               <option value="Oberta">Oberta</option>
@@ -147,6 +151,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
               value={selectedYear}
               onChange={(e) => onYearChange(e.target.value)}
               className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              disabled={isSaving}
             >
               {availableYears.map(year => (
                 <option key={year} value={year}>{year}</option>
@@ -155,8 +160,9 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
              {canEdit && (
                 <button
                     onClick={onAddCommission}
-                    className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500"
+                    className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     title="Afegir nova comissió"
+                    disabled={isSaving}
                 >
                     + Afegir
                 </button>
@@ -172,6 +178,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           onEditCommission={onEditCommission}
           onDeleteCommission={onDeleteCommission}
           currentUser={currentUser}
+          isSaving={isSaving}
         />
 
         <div className="my-6 flex justify-center gap-4 no-print">

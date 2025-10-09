@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Expedient, ReportStatus, AdminData, SortConfig } from '../types';
 import { SortUpIcon, SortDownIcon, SortIcon, PencilIcon, DuplicateIcon, TrashIcon, CheckIcon, XIcon } from './icons/Icons';
@@ -50,13 +48,14 @@ interface ExpedientTableProps {
     selectedIds: string[];
     onSelectionChange: (ids: string[]) => void;
     canEdit: boolean;
+    isSaving: boolean;
 }
 
 const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
     const { 
         expedients, adminData, sortConfig, onSort, editingExpedientId, editedExpedientData, 
         onStartEdit, onCancelEdit, onSaveEdit, onEditChange, onDelete, onDuplicate,
-        selectedIds, onSelectionChange, canEdit
+        selectedIds, onSelectionChange, canEdit, isSaving
     } = props;
     
     const inputClass = "w-full p-2 border rounded bg-yellow-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400";
@@ -99,6 +98,7 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
                                     checked={selectedIds.length === expedients.length && expedients.length > 0}
                                     onChange={handleSelectAll}
                                     aria-label="Seleccionar tots els expedients"
+                                    disabled={isSaving}
                                 />
                             </th>
                         )}
@@ -130,6 +130,7 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
                                         checked={selectedIds.includes(expedient.id)}
                                         onChange={(e) => handleSelectRow(expedient.id, e.target.checked)}
                                         aria-label={`Seleccionar expedient ${expedient.id}`}
+                                        disabled={isSaving}
                                     />
                                 </td>
                            )}
@@ -186,9 +187,9 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
                                         </>
                                     ) : (
                                         <>
-                                            <button onClick={() => onStartEdit(expedient)} title="Editar" className="p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><PencilIcon/></button>
-                                            <button onClick={() => onDuplicate(expedient.id)} title="Duplicar" className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><DuplicateIcon/></button>
-                                            <button onClick={() => onDelete(expedient.id)} title="Eliminar" className="p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><TrashIcon/></button>
+                                            <button onClick={() => onStartEdit(expedient)} title="Editar" className="p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50" disabled={isSaving}><PencilIcon/></button>
+                                            <button onClick={() => onDuplicate(expedient.id)} title="Duplicar" className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50" disabled={isSaving}><DuplicateIcon/></button>
+                                            <button onClick={() => onDelete(expedient.id)} title="Eliminar" className="p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50" disabled={isSaving}><TrashIcon/></button>
                                         </>
                                     )}
                                     </div>

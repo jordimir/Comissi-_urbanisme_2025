@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { CommissionSummary } from '../types';
 
@@ -8,9 +7,10 @@ interface CommissionModalProps {
   onSave: (data: { numActa: number, dataComissio: string }) => void;
   commissionToEdit: CommissionSummary | null;
   existingCommissions: CommissionSummary[];
+  isSaving: boolean;
 }
 
-const CommissionModal: React.FC<CommissionModalProps> = ({ isOpen, onClose, onSave, commissionToEdit, existingCommissions }) => {
+const CommissionModal: React.FC<CommissionModalProps> = ({ isOpen, onClose, onSave, commissionToEdit, existingCommissions, isSaving }) => {
   const [numActa, setNumActa] = useState('');
   const [dataComissio, setDataComissio] = useState('');
   const [error, setError] = useState('');
@@ -99,6 +99,7 @@ const CommissionModal: React.FC<CommissionModalProps> = ({ isOpen, onClose, onSa
                     onChange={(e) => setNumActa(e.target.value)}
                     className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     required
+                    disabled={isSaving}
                 />
             </div>
              <div>
@@ -110,6 +111,7 @@ const CommissionModal: React.FC<CommissionModalProps> = ({ isOpen, onClose, onSa
                     onChange={(e) => setDataComissio(e.target.value)}
                     className="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                     required
+                    disabled={isSaving}
                 />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -118,14 +120,16 @@ const CommissionModal: React.FC<CommissionModalProps> = ({ isOpen, onClose, onSa
                     type="button"
                     onClick={onClose}
                     className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                    disabled={isSaving}
                 >
                     Cancel·lar
                 </button>
                 <button
                     type="submit"
-                    className="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors"
+                    className="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors disabled:bg-gray-400"
+                    disabled={isSaving}
                 >
-                    Desar
+                    {isSaving ? 'Guardant...' : 'Desar'}
                 </button>
             </div>
         </form>

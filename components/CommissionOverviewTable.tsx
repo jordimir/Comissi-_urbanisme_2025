@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { CommissionSummary, CommissionStatus, User } from '../types';
 import { DotsVerticalIcon, EmailIcon } from './icons/Icons';
@@ -11,6 +10,7 @@ interface CommissionOverviewTableProps {
   onEditCommission: (commission: CommissionSummary) => void;
   onDeleteCommission: (commission: CommissionSummary) => void;
   currentUser: User;
+  isSaving: boolean;
 }
 
 const CommissionStatusPill: React.FC<{ status: 'Finalitzada' | 'Oberta' }> = ({ status }) => {
@@ -29,7 +29,8 @@ const ActionsMenu: React.FC<{
     onEdit: Function;
     onDelete: Function;
     currentUser: User;
-}> = ({ commission, onUpdate, onMarkAsSent, onSelect, onEdit, onDelete, currentUser }) => {
+    isSaving: boolean;
+}> = ({ commission, onUpdate, onMarkAsSent, onSelect, onEdit, onDelete, currentUser, isSaving }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +51,11 @@ const ActionsMenu: React.FC<{
 
   return (
     <div className="relative" ref={menuRef}>
-      <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+      <button 
+        onClick={() => setIsOpen(!isOpen)} 
+        className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={isSaving}
+      >
         <DotsVerticalIcon />
       </button>
       {isOpen && (
@@ -95,7 +100,7 @@ const ActionsMenu: React.FC<{
   );
 };
 
-const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commissions, onSelectCommission, onUpdateCommission, onMarkCommissionAsSent, onEditCommission, onDeleteCommission, currentUser }) => {
+const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commissions, onSelectCommission, onUpdateCommission, onMarkCommissionAsSent, onEditCommission, onDeleteCommission, currentUser, isSaving }) => {
 
   const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
@@ -149,7 +154,7 @@ const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commi
                       key={commission.numActa + commission.dataComissio}
                       className={`p-3 rounded-lg flex items-center justify-between transition-all duration-200 ${commission.estat === 'Oberta' ? 'bg-green-50 dark:bg-green-900/30' : 'bg-gray-50 dark:bg-gray-900/50'} hover:shadow-md hover:bg-gray-100 dark:hover:bg-gray-700`}
                     >
-                      <div className="flex-1 cursor-pointer" onClick={() => onSelectCommission(commission)}>
+                      <div className="flex-1 cursor-pointer" onClick={() => !isSaving && onSelectCommission(commission)}>
                         <div className="flex items-center gap-4">
                             <span className="font-bold text-gray-800 dark:text-gray-200 w-8 text-center">{commission.numActa}</span>
                             <div>
@@ -166,7 +171,7 @@ const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commi
                                         type="date"
                                         aria-label="Data de l'email"
                                         value={formatDateToYYYYMMDD(commission.dataEmail)}
-                                        disabled={!commission.avisEmail}
+                                        disabled={!commission.avisEmail || isSaving}
                                         onChange={(e) => onUpdateCommission(commission.numActa, commission.dataComissio, 'dataEmail', formatDateToDDMMYYYY(e.target.value))}
                                         className="w-full text-sm p-1 border rounded bg-transparent dark:bg-gray-700 dark:border-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-indigo-400"
                                     />
@@ -182,6 +187,7 @@ const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commi
                                         onEdit={onEditCommission}
                                         onDelete={onDeleteCommission}
                                         currentUser={currentUser}
+                                        isSaving={isSaving}
                                     />
                                 </div>
                             )}

@@ -15,17 +15,20 @@ import {
   ToastMessage,
   User,
   TechnicianWorkload,
-  CommissionStatus
+  CommissionStatus,
+  AdminList
 } from './types';
 import * as api from './api';
 import { SunIcon, MoonIcon } from './components/icons/Icons';
 
 type View = 'dashboard' | 'detail' | 'admin';
+type ListKey = keyof Omit<ApplicationData['adminData'], 'users'>;
 
 const App: React.FC = () => {
   const [data, setData] = useState<ApplicationData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [loginError, setLoginError] = useState('');
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -151,7 +154,8 @@ const App: React.FC = () => {
     const technicianWorkload: TechnicianWorkload = {
       headers: [], technicians: [], data: {}, rowTotals: {}, columnTotals: [], grandTotal: 0
     };
-    const technicians = Array.from(new Set(allExpedientsForYear.map(e => e.tecnic))).sort();
+    // Fix: Explicitly type 'technicians' as string[] to prevent TypeScript from inferring it as 'unknown[]' in strict mode, which was causing multiple downstream index-related type errors.
+    const technicians: string[] = Array.from(new Set(allExpedientsForYear.map(e => e.tecnic))).sort();
     technicianWorkload.technicians = technicians;
     technicians.forEach(t => {
         technicianWorkload.data[t] = {};
@@ -247,6 +251,7 @@ const App: React.FC = () => {
   };
 
   const handleUpdateCommission = async (numActa: number, dataComissio: string, field: keyof CommissionSummary, value: any) => {
+    setIsSaving(true);
     try {
       const updatedCommission = await api.updateCommissionSummary(numActa, dataComissio, field, value);
       setData(prevData => {
@@ -260,10 +265,13 @@ const App: React.FC = () => {
       });
     } catch (error) {
       showToast("Error en actualitzar la comissió", 'error');
+    } finally {
+        setIsSaving(false);
     }
   };
 
   const handleMarkCommissionAsSent = async (numActa: number, dataComissio: string) => {
+    setIsSaving(true);
     try {
       const updatedCommission = await api.markCommissionAsSent(numActa, dataComissio);
       setData(prevData => {
@@ -278,12 +286,14 @@ const App: React.FC = () => {
       showToast("Comissió marcada com a enviada.");
     } catch (error) {
       showToast("Error en marcar la comissió", 'error');
+    } finally {
+        setIsSaving(false);
     }
   };
   
   const handleSaveCommissionDetails = async (detail: CommissionDetail) => {
+    setIsSaving(true);
     try {
-      setLoading(true);
       const savedDetail = await api.saveCommissionDetails(detail);
       setData(prevData => {
         if (!prevData) return null;
@@ -315,7 +325,7 @@ const App: React.FC = () => {
     } catch (error) {
       showToast("Error en desar els canvis", 'error');
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -324,6 +334,7 @@ const App: React.FC = () => {
       title: 'Generar Comissions',
       message: 'Estàs segur que vols generar les comissions per al proper any? Aquesta acció no es pot desfer.',
       onConfirm: async () => {
+        setIsSaving(true);
         try {
           const newCommissions = await api.generateNextYearCommissions();
           setData(prevData => prevData ? { ...prevData, commissions: [...prevData.commissions, ...newCommissions] } : null);
@@ -332,6 +343,8 @@ const App: React.FC = () => {
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : "Error desconegut";
           showToast(errorMessage, 'error');
+        } finally {
+            setIsSaving(false);
         }
       }
     });
@@ -352,18 +365,22 @@ const App: React.FC = () => {
         title: 'Eliminar Comissió',
         message: `Estàs segur que vols eliminar la comissió ${commission.numActa}/${commission.dataComissio.split('/')[2]}? Aquesta acció eliminarà també tots els seus expedients.`,
         onConfirm: async () => {
+            setIsSaving(true);
             try {
                 await api.deleteCommission(commission.numActa, commission.dataComissio);
                 await fetchData();
                 showToast('Comissió eliminada correctament.');
             } catch (error) {
                 showToast('Error en eliminar la comissió', 'error');
+            } finally {
+                setIsSaving(false);
             }
         }
     });
   };
   
   const handleSaveCommission = async (data: {numActa: number, dataComissio: string}) => {
+    setIsSaving(true);
     try {
         if (commissionToEdit) {
             await api.updateCommission(commissionToEdit.numActa, commissionToEdit.dataComissio, data);
@@ -378,9 +395,24 @@ const App: React.FC = () => {
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "S'ha produït un error";
         showToast(errorMessage, 'error');
+    } finally {
+        setIsSaving(false);
     }
   };
   
+  const handleAdminAction = async (action: () => Promise<any>) => {
+    setIsSaving(true);
+    try {
+        await action();
+        await fetchData();
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Ha ocorregut un error';
+        showToast(message, 'error');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
   // --- Render logic ---
@@ -430,6 +462,7 @@ const App: React.FC = () => {
                     onDeleteCommission={handleDeleteCommission}
                     currentUser={currentUser}
                     onLogout={handleLogout}
+                    isSaving={isSaving}
                 />
             )}
             {currentView === 'detail' && commissionDetail && data && (
@@ -441,13 +474,15 @@ const App: React.FC = () => {
                     currentUser={currentUser}
                     isFocusMode={isFocusMode}
                     onToggleFocusMode={() => setIsFocusMode(!isFocusMode)}
+                    isSaving={isSaving}
                 />
             )}
             {currentView === 'admin' && data && (
                 <AdminView
                     adminData={data.adminData}
                     onBack={() => setCurrentView('dashboard')}
-                    onDataChange={fetchData}
+                    onAdminAction={handleAdminAction}
+                    isSaving={isSaving}
                 />
             )}
 
@@ -467,6 +502,7 @@ const App: React.FC = () => {
                 onSave={handleSaveCommission}
                 commissionToEdit={commissionToEdit}
                 existingCommissions={data?.commissions || []}
+                isSaving={isSaving}
             />
         </div>
     </div>

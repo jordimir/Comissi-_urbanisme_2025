@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, User } from '../types';
 import ExpedientTable from './ExpedientTable';
@@ -14,10 +13,11 @@ interface CommissionDetailViewProps {
     currentUser: User;
     isFocusMode: boolean;
     onToggleFocusMode: () => void;
+    isSaving: boolean;
 }
 
 const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
-    const { commissionDetail, onBack, onSave, adminData, currentUser, isFocusMode, onToggleFocusMode } = props;
+    const { commissionDetail, onBack, onSave, adminData, currentUser, isFocusMode, onToggleFocusMode, isSaving } = props;
     
     const [editedDetail, setEditedDetail] = useState<CommissionDetail>(JSON.parse(JSON.stringify(commissionDetail)));
     const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
@@ -180,7 +180,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
                 `- ${e.procediment}: ${e.descripcio} a ${e.indret}. Informe: ${e.sentitInforme}. Tècnic: ${e.tecnic}.`
             ).join('\n');
             
-            const prompt = `Ets un assistent administratiu expert en urbanisme per a l'ajuntament de Tossa de Mar. Analitza la següent llista d'expedients de la comissió del dia ${editedDetail.sessio} i genera un resum concís en català. El resum ha de ser un paràgraf breu que destaqui els punts més importants, com ara el nombre total d'expedients, els tipus de procediments més comuns, la proporció d'informes favorables i desfavorables, i qualsevol projecte de gran rellevància si n'hi ha. No facis una llista, sinó un text cohesionat. Expedeints:\n${expedientsText}`;
+            const prompt = `Ets un assistent administratiu expert en urbanisme per a l'ajuntament de Tossa de Mar. Analitza la següent llista d'expedients de la comissió del dia ${editedDetail.sessio} i genera un resum concís en català. El resum ha de ser un pargraf breu que destaqui els punts més importants, com ara el nombre total d'expedients, els tipus de procediments més comuns, la proporció d'informes favorables i desfavorables, i qualsevol projecte de gran rellevància si n'hi ha. No facis una llista, sinó un text cohesionat. Expedeints:\n${expedientsText}`;
             
             // Fix: Use ai.models.generateContent and correct model name as per guidelines
             const response = await ai.models.generateContent({
@@ -223,10 +223,10 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
                         {canEdit && (
                             <button
                                 onClick={handleSave}
-                                disabled={!hasChanges}
+                                disabled={!hasChanges || isSaving}
                                 className="bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
-                                {hasChanges ? 'Desar Canvis' : 'Desat'}
+                                {isSaving ? 'Guardant...' : (hasChanges ? 'Desar Canvis' : 'Desat')}
                             </button>
                         )}
                     </div>
@@ -248,18 +248,19 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="p-2 border rounded-md shadow-sm w-full sm:w-1/3 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        disabled={isSaving}
                     />
                     <div className="flex items-center gap-2">
                          {canEdit && selectedIds.length > 0 && (
-                             <button onClick={handleDeleteSelected} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-red-600">
+                             <button onClick={handleDeleteSelected} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-red-600 disabled:bg-gray-400" disabled={isSaving}>
                                 Eliminar ({selectedIds.length})
                             </button>
                          )}
-                         <button onClick={() => setIsEmailPreviewOpen(true)} className="bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600">
+                         <button onClick={() => setIsEmailPreviewOpen(true)} className="bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600 disabled:bg-gray-400" disabled={isSaving}>
                             Previsualitzar Enviament
                         </button>
                         {canEdit && (
-                            <button onClick={handleAddExpedient} className="bg-green-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-600">
+                            <button onClick={handleAddExpedient} className="bg-green-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-600 disabled:bg-gray-400" disabled={isSaving}>
                                 + Afegir Expedient
                             </button>
                         )}
@@ -282,6 +283,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
                     selectedIds={selectedIds}
                     onSelectionChange={setSelectedIds}
                     canEdit={canEdit}
+                    isSaving={isSaving}
                 />
             </div>
             
@@ -290,7 +292,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
                     <h2 className="text-xl font-bold">Resum amb Intel·ligència Artificial</h2>
                     <button 
                         onClick={handleGenerateAISummary}
-                        disabled={isAiLoading}
+                        disabled={isAiLoading || isSaving}
                         className="bg-purple-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-purple-600 disabled:bg-gray-400"
                     >
                         {isAiLoading ? 'Generant...' : 'Generar Resum'}

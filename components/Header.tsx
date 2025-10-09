@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CalendarIcon, AdminIcon, FocusIcon, SunIcon, MoonIcon, LogoutIcon } from './icons/Icons';
 import { User } from '../types';
@@ -11,9 +10,10 @@ interface HeaderProps {
     toggleTheme: () => void;
     currentUser: User;
     onLogout: () => void;
+    isSaving: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onToggleFocusMode, theme, toggleTheme, currentUser, onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onToggleFocusMode, theme, toggleTheme, currentUser, onLogout, isSaving }) => {
   return (
     <header className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl shadow-md">
       <div className="flex justify-between items-center">
@@ -35,14 +35,16 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
           <button
             onClick={toggleTheme}
             title={theme === 'light' ? 'Activar mode fosc' : 'Activar mode clar'}
-            className="hidden md:inline-flex p-3 bg-gray-200 dark:bg-gray-700 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
+            className="hidden md:inline-flex p-3 bg-gray-200 dark:bg-gray-700 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400 disabled:opacity-50"
+            disabled={isSaving}
           >
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
           <button
             onClick={onToggleFocusMode}
             title="Mode Focus"
-            className="hidden md:inline-flex p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400"
+            className="hidden md:inline-flex p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400 disabled:opacity-50"
+            disabled={isSaving}
           >
             <FocusIcon />
           </button>
@@ -50,7 +52,8 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
             <button
                 onClick={onGenerateCommissions}
                 title="Generar comissions del proper any"
-                className="hidden md:inline-flex p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-yellow-400"
+                className="hidden md:inline-flex p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-yellow-400 disabled:opacity-50"
+                disabled={isSaving}
             >
                 <CalendarIcon />
             </button>
@@ -59,7 +62,8 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
              <button
                onClick={onNavigateToAdmin}
                title="Administració"
-               className="hidden md:inline-flex p-3 bg-gray-200 dark:bg-gray-700 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
+               className="hidden md:inline-flex p-3 bg-gray-200 dark:bg-gray-700 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400 disabled:opacity-50"
+               disabled={isSaving}
              >
                <AdminIcon />
              </button>
@@ -67,7 +71,8 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
             <button
             onClick={onLogout}
             title="Tancar Sessió"
-            className="hidden md:inline-flex p-3 bg-red-100 dark:bg-red-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
+            className="hidden md:inline-flex p-3 bg-red-100 dark:bg-red-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400 disabled:opacity-50"
+            disabled={isSaving}
           >
             <LogoutIcon />
           </button>
