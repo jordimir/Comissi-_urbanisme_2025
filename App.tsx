@@ -1,654 +1,474 @@
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import * as api from './api';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Dashboard from './components/Dashboard';
 import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
 import Login from './components/Login';
-import Modal from './components/Modal';
 import Toast from './components/Toast';
+import Modal from './components/Modal';
 import CommissionModal from './components/CommissionModal';
-import { CommissionSummary, CommissionDetail, Expedient, AdminData, AdminList, StatisticsData, User, ToastMessage, TechnicianWorkload } from './types';
-import { adminData as initialAdminData } from './data';
+import { 
+  ApplicationData, 
+  CommissionSummary, 
+  CommissionDetail, 
+  StatisticsData,
+  ToastMessage,
+  User,
+  TechnicianWorkload,
+  CommissionStatus
+} from './types';
+import * as api from './api';
+import { SunIcon, MoonIcon } from './components/icons/Icons';
 
 type View = 'dashboard' | 'detail' | 'admin';
-type Theme = 'light' | 'dark';
-
-const COLORS = ['#14b8a6', '#f97316', '#ef4444', '#8b5cf6', '#3b82f6', '#f43f5e', '#06b6d4', '#d946ef'];
 
 const App: React.FC = () => {
+  const [data, setData] = useState<ApplicationData | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [authError, setAuthError] = useState('');
-  const [view, setView] = useState<View>('dashboard');
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedCommission, setSelectedCommission] = useState<CommissionSummary | null>(null);
-  
-  const [commissionDetails, setCommissionDetails] = useState<CommissionDetail[]>([]);
-  const [commissions, setCommissions] = useState<CommissionSummary[]>([]);
-  const [adminData, setAdminData] = useState<AdminData>(initialAdminData);
+  const [loading, setLoading] = useState(true);
+  const [loginError, setLoginError] = useState('');
 
-  const [modalState, setModalState] = useState({ isOpen: false, title: '', message: '', onConfirm: undefined as (() => void) | undefined });
-  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [selectedCommission, setSelectedCommission] = useState<CommissionSummary | null>(null);
+  const [commissionDetail, setCommissionDetail] = useState<CommissionDetail | null>(null);
+  
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        const storedTheme = window.localStorage.getItem('theme');
+        if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            return 'dark';
+        }
+    }
+    return 'light';
+  });
+
   const [isFocusMode, setIsFocusMode] = useState(false);
-  const [theme, setTheme] = useState<Theme>('light');
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [modal, setModal] = useState<{ title: string; message: string; onConfirm?: () => void } | null>(null);
 
   const [isCommissionModalOpen, setIsCommissionModalOpen] = useState(false);
-  const [editingCommission, setEditingCommission] = useState<CommissionSummary | null>(null);
+  const [commissionToEdit, setCommissionToEdit] = useState<CommissionSummary | null>(null);
+
+  // --- Effects ---
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const user = await api.getCurrentUser();
-      if (user) {
-        setCurrentUser(user);
-        await fetchData();
-      } else {
-        setIsLoading(false);
-      }
-    };
-    checkSession();
-  }, []);
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success', onUndo?: () => void) => {
-    setToast({ message, type, id: Date.now(), onUndo });
-  };
-
-  const hideToast = () => {
-    setToast(null);
-  };
-
-  const fetchData = async () => {
-      setIsLoading(true);
-      try {
-          const data = await api.getApplicationData();
-          setCommissions(data.commissions);
-          setCommissionDetails(data.commissionDetails);
-          setAdminData(data.adminData);
-      } catch (error) {
-          console.error("Failed to load application data", error);
-          showToast('No s\'han pogut carregar les dades de l\'aplicació.', 'error');
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  const handleLogin = async (email: string, password: string) => {
-    setAuthError('');
-    setIsLoading(true);
-    try {
-      const user = await api.login(email, password);
-      setCurrentUser(user);
-      await fetchData();
-    } catch (error: any) {
-      setAuthError(error.message || "S'ha produït un error en iniciar la sessió.");
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await api.logout();
-    setCurrentUser(null);
-    setCommissions([]);
-    setCommissionDetails([]);
-    setAdminData(initialAdminData);
-    setView('dashboard');
-  };
-
-  const availableYears = useMemo(() => 
-    [...new Set(commissions.map(c => c.dataComissio.split('/')[2]))].sort((a, b) => Number(b) - Number(a))
-  , [commissions]);
-
-  const [selectedYear, setSelectedYear] = useState<string>(availableYears[0] || new Date().getFullYear().toString());
-  
   useEffect(() => {
-      if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
-          setSelectedYear(availableYears[0]);
-      }
-  }, [availableYears, selectedYear]);
-
-
-  const handleYearChange = (year: string) => {
-    setSelectedYear(year);
-  };
-
-  const closeModal = () => {
-    setModalState({ isOpen: false, title: '', message: '', onConfirm: undefined });
-  };
-
-  const handleGenerateNextYearCommissions = useCallback(async () => {
-    if (currentUser?.role !== 'admin') {
-      showToast("No teniu permisos per realitzar aquesta acció.", 'error');
-      return;
-    }
-    const lastYear = commissions.length > 0
-        ? Math.max(...commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10)))
-        : new Date().getFullYear();
-    const nextYear = lastYear + 1;
-    
-    setModalState({
-      isOpen: true,
-      title: `Generar Comissions per a ${nextYear}`,
-      message: `Estàs segur que vols generar automàticament el calendari de comissions per a l'any ${nextYear}?`,
-      onConfirm: async () => {
-        try {
-            const newCommissions = await api.generateNextYearCommissions();
-            const fullData = await api.getApplicationData();
-            setCommissions(fullData.commissions);
-            showToast(`S'han generat ${newCommissions.length} comissions per a l'any ${nextYear}.`);
-        } catch (error) {
-            console.error('Failed to generate commissions', error);
-            showToast('No s\'han pogut generar les comissions.', 'error');
-        }
-      }
-    });
-  }, [commissions, currentUser]);
-
-  const handleSelectCommission = useCallback(async (commission: CommissionSummary) => {
+    const checkUser = async () => {
       try {
-        const detail = await api.getCommissionDetail(commission.numActa, commission.dataComissio);
-        if (detail) {
-            const detailYear = detail.sessio.split('/')[2];
-            setCommissionDetails(prev => {
-                const exists = prev.some(d => d.numActa === detail.numActa && d.sessio.split('/')[2] === detailYear);
-                if (exists) {
-                    return prev.map(d => (d.numActa === detail.numActa && d.sessio.split('/')[2] === detailYear) ? detail : d);
-                }
-                return [...prev, detail];
-            });
-            setSelectedCommission(commission);
-            setView('detail');
-        } else {
-             showToast(`No s'han trobat detalls per a la comissió ${commission.numActa} de l'any ${commission.dataComissio.split('/')[2]}.`, 'error');
+        const user = await api.getCurrentUser();
+        setCurrentUser(user);
+        if (user) {
+          fetchData();
         }
       } catch (error) {
-        console.error("Failed to fetch commission details", error);
-        showToast('No s\'han pogut carregar els detalls de la comissió.', 'error');
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
+    };
+    checkUser();
   }, []);
 
-  const handleBackToDashboard = useCallback(() => {
-    setSelectedCommission(null);
-    setView('dashboard');
-  }, []);
-
-  const handleNavigateToAdmin = useCallback(() => {
-    if (currentUser?.role === 'admin') {
-      setView('admin');
-    } else {
-      showToast("No teniu permisos per accedir a l'administració.", 'error');
-    }
-  }, [currentUser]);
-
-  const getCommissionDetail = (actaId: number, commissionDate: string): CommissionDetail | undefined => {
-    const year = commissionDate.split('/')[2];
-    return commissionDetails.find(detail => detail.numActa === actaId && detail.sessio.endsWith(`/${year}`));
-  };
-
-  const handleSaveCommissionDetails = async (updatedDetail: CommissionDetail) => {
+  const fetchData = useCallback(async () => {
     try {
-        const savedDetail = await api.saveCommissionDetails(updatedDetail);
-        const savedDetailYear = savedDetail.sessio.split('/')[2];
-        
-        setCommissionDetails(prevDetails => {
-            const newDetails = prevDetails.map(detail =>
-                (detail.numActa === savedDetail.numActa && detail.sessio.endsWith(`/${savedDetailYear}`)) ? savedDetail : detail
-            );
-            if (!prevDetails.some(d => d.numActa === savedDetail.numActa && d.sessio.endsWith(`/${savedDetailYear}`))) {
-                newDetails.push(savedDetail);
-            }
-            return newDetails;
-        });
-
-         setCommissions(prevSummaries => prevSummaries.map(summary => 
-            (summary.numActa === savedDetail.numActa && summary.dataComissio.endsWith(`/${savedDetailYear}`)) ? { 
-              ...summary, 
-              numTemes: savedDetail.expedients.length,
-              dataComissio: savedDetail.sessio,
-              estat: savedDetail.estat,
-              diaSetmana: api.getDayOfWeekCatalan(savedDetail.sessio),
-            } : summary
-          ));
-        showToast('Els canvis s\'han guardat correctament.');
+      setLoading(true);
+      const appData = await api.getApplicationData();
+      setData(appData);
     } catch (error) {
-        console.error("Failed to save commission details", error);
-        showToast('No s\'han pogut guardar els canvis.', 'error');
-    }
-  };
-
-  const handleUpdateCommissionSummary = async (
-    numActa: number,
-    dataComissio: string,
-    field: keyof CommissionSummary,
-    value: any
-  ) => {
-      try {
-        await api.updateCommissionSummary(numActa, dataComissio, field, value);
-        setCommissions(prev => prev.map(c => {
-            if (c.numActa === numActa && c.dataComissio === dataComissio) {
-                const updated = { ...c, [field]: value };
-                if (field === 'avisEmail' && !value) {
-                    updated.dataEmail = null;
-                }
-                return updated;
-            }
-            return c;
-        }));
-        showToast('Comissió actualitzada.');
-      } catch(error) {
-          console.error("Failed to update commission summary", error);
-          showToast('No s\'ha pogut actualitzar la comissió.', 'error');
-      }
-  };
-
-  const handleMarkCommissionAsSent = useCallback(async (numActa: number, dataComissio: string) => {
-    try {
-        const updatedCommission = await api.markCommissionAsSent(numActa, dataComissio);
-        setCommissions(prev => prev.map(c => c.numActa === numActa && c.dataComissio === dataComissio ? updatedCommission : c));
-        showToast("L'email s'ha marcat com a enviat.");
-    } catch(error) {
-        console.error("Failed to mark commission as sent", error);
-        showToast('No s\'ha pogut realitzar l\'acció.', 'error');
+      showToast('Error en carregar les dades', 'error');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const handleOpenAddCommissionModal = () => {
-    setEditingCommission(null);
-    setIsCommissionModalOpen(true);
-  };
+  // --- Memoized Data ---
 
-  const handleOpenEditCommissionModal = (commission: CommissionSummary) => {
-      setEditingCommission(commission);
-      setIsCommissionModalOpen(true);
-  };
+  const availableYears = useMemo(() => {
+    if (!data?.commissions) return [new Date().getFullYear().toString()];
+    const years = new Set(data.commissions.map(c => c.dataComissio.split('/')[2]));
+    return Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
+  }, [data?.commissions]);
+  
+  const filteredCommissions = useMemo(() => {
+    if (!data?.commissions) return [];
+    return data.commissions.filter(c => c.dataComissio.endsWith(`/${selectedYear}`));
+  }, [data?.commissions, selectedYear]);
 
-  const handleCloseCommissionModal = () => {
-      setIsCommissionModalOpen(false);
-      setEditingCommission(null);
-  };
+  const statistics = useMemo((): StatisticsData => {
+    const stats: StatisticsData = {
+      technicianDistribution: [],
+      workloadOverTime: [],
+      reportStatusDistribution: [],
+      procedureTypeDistribution: [],
+      monthlyWorkload: [],
+      technicianWorkload: { headers: [], technicians: [], data: {}, rowTotals: {}, columnTotals: [], grandTotal: 0 },
+    };
+    
+    if (!data || !filteredCommissions.length) return stats;
 
-  const handleSaveCommission = async (
-      commissionData: { numActa: number, dataComissio: string },
-      originalData?: { numActa: number, dataComissio: string }
-  ) => {
-      try {
-          if (originalData) {
-              await api.updateCommission(originalData.numActa, originalData.dataComissio, commissionData);
-          } else {
-              await api.addCommission(commissionData);
-          }
-          const fullData = await api.getApplicationData();
-          setCommissions(fullData.commissions);
-          setCommissionDetails(fullData.commissionDetails);
-          showToast(`La comissió s'ha ${originalData ? 'actualitzat' : 'creat'} correctament.`);
-          handleCloseCommissionModal();
-      } catch (error: any) {
-          console.error("Failed to save commission", error);
-          showToast(error.message || 'No s\'ha pogut guardar la comissió.', 'error');
-      }
-  };
+    const detailsForYear = data.commissionDetails.filter(d => d.sessio.endsWith(`/${selectedYear}`));
+    const allExpedientsForYear = detailsForYear.flatMap(d => d.expedients);
 
-  const handleDeleteCommission = (commission: CommissionSummary) => {
-      setModalState({
-          isOpen: true,
-          title: 'Eliminar Comissió',
-          message: `Estàs segur que vols eliminar la comissió núm. ${commission.numActa} del ${commission.dataComissio}? Aquesta acció eliminarà també els expedients associats i no es pot desfer.`,
-          onConfirm: async () => {
-              try {
-                  await api.deleteCommission(commission.numActa, commission.dataComissio);
-                  const year = commission.dataComissio.split('/')[2];
-                  setCommissions(prev => prev.filter(c => !(c.numActa === commission.numActa && c.dataComissio === commission.dataComissio)));
-                  setCommissionDetails(prev => prev.filter(d => !(d.numActa === commission.numActa && d.sessio.endsWith(`/${year}`))));
-                  showToast('La comissió s\'ha eliminat correctament.');
-              } catch (error) {
-                  console.error("Failed to delete commission", error);
-                  showToast('No s\'ha pogut eliminar la comissió.', 'error');
-              }
-          }
-      });
-  };
+    // Technician Distribution
+    const techCounts: Record<string, number> = {};
+    allExpedientsForYear.forEach(exp => {
+      techCounts[exp.tecnic] = (techCounts[exp.tecnic] || 0) + 1;
+    });
+    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF4560', '#775DD0'];
+    stats.technicianDistribution = Object.entries(techCounts)
+        .map(([name, value], index) => ({ name, value, fill: COLORS[index % COLORS.length] }))
+        .sort((a, b) => b.value - a.value);
 
-  const handleUpdateAdminItem = async (list: keyof AdminData, id: string, name: string, email?: string) => {
-    if (list === 'users') return;
-    try {
-        await api.updateAdminItem(list, id, name, email);
-        setAdminData(prev => ({
-            ...prev,
-            [list]: (prev[list] as AdminList[]).map(item => item.id === id ? { ...item, name, email } : item)
+    // Workload Over Time
+    stats.workloadOverTime = filteredCommissions
+        .filter(c => c.estat === 'Finalitzada')
+        .sort((a,b) => a.numActa - b.numActa)
+        .map(c => ({
+            date: `Acta ${c.numActa}`,
+            'Càrrega': c.numTemes
         }));
-        showToast('Element actualitzat.');
-    } catch(error) {
-        console.error(`Failed to update item in ${list}`, error);
-        showToast('No s\'ha pogut actualitzar l\'element.', 'error');
-    }
-  };
 
-  const handleDeleteAdminItem = async (list: keyof AdminData, id: string) => {
-    if (list === 'users') return;
-     try {
-        await api.deleteAdminItem(list, id);
-        setAdminData(prev => ({
-            ...prev,
-            [list]: (prev[list] as AdminList[]).filter(item => item.id !== id)
-        }));
-        showToast('Element eliminat.');
-    } catch(error) {
-        console.error(`Failed to delete item from ${list}`, error);
-        showToast('No s\'ha pogut eliminar l\'element.', 'error');
-    }
-  };
-
-  const handleAddAdminItem = async (list: keyof AdminData, name: string, email?: string) => {
-    if (list === 'users') return;
-    try {
-        const newItem = await api.addAdminItem(list, name, email);
-        setAdminData(prev => ({
-            ...prev,
-            [list]: [...(prev[list] as AdminList[]), newItem]
-        }));
-        showToast('Element afegit.');
-    } catch(error) {
-        console.error(`Failed to add item to ${list}`, error);
-        showToast('No s\'ha pogut afegir l\'element.', 'error');
-    }
-  };
-
-  const handleUpdateUser = async (id: string, name: string, email: string, role: User['role'], password?: string) => {
-      try {
-        await api.updateUser(id, name, email, role, password);
-        setAdminData(prev => ({
-            ...prev,
-            users: prev.users.map(user => user.id === id ? { ...user, name, email, role } : user)
-        }));
-        showToast('Usuari actualitzat.');
-      } catch(error) {
-          console.error("Failed to update user", error);
-          showToast('No s\'ha pogut actualitzar l\'usuari.', 'error');
-      }
-  };
-  const handleDeleteUser = async (id: string) => {
-      try {
-          await api.deleteUser(id);
-          setAdminData(prev => ({
-              ...prev,
-              users: prev.users.filter(user => user.id !== id)
-          }));
-          showToast('Usuari eliminat.');
-      } catch(error) {
-          console.error("Failed to delete user", error);
-          showToast('No s\'ha pogut eliminar l\'usuari.', 'error');
-      }
-  };
-  const handleAddUser = async (name: string, email: string, role: User['role'], password?: string) => {
-      try {
-        const newUser = await api.addUser(name, email, role, password);
-        setAdminData(prev => ({...prev, users: [...prev.users, newUser]}));
-        showToast('Usuari afegit.');
-      } catch(error) {
-          console.error("Failed to add user", error);
-          showToast('No s\'ha pogut afegir l\'usuari.', 'error');
-      }
-  };
-
-  const handleImportUsers = async (importedUsers: User[]) => {
-    try {
-        const updatedUsers = await api.importUsers(importedUsers);
-        setAdminData(prev => ({ ...prev, users: updatedUsers }));
-        showToast('La llista d\'usuaris s\'ha actualitzat correctament.');
-    } catch(error) {
-        console.error("Failed to import users", error);
-        showToast('No s\'ha pogut importar els usuaris.', 'error');
-    }
-  };
-
-  const filteredCommissions = useMemo(() => 
-    commissions.filter(c => c.dataComissio.endsWith(selectedYear))
-  , [commissions, selectedYear]);
-
-  const filteredStatistics = useMemo<StatisticsData>(() => {
-    const yearCommissions = commissions.filter(c => c.dataComissio.endsWith(selectedYear));
-    const yearCommissionActaNumbers = new Set(yearCommissions.map(c => c.numActa));
-
-    const yearCommissionDetails = commissionDetails.filter(d => 
-        yearCommissionActaNumbers.has(d.numActa) && d.sessio.endsWith(selectedYear)
-    );
-
-    const techCounts: { [key: string]: number } = {};
-    const reportStatusCounts: { [key: string]: number } = {};
-
-    yearCommissionDetails.forEach(detail => {
-      detail.expedients.forEach(expedient => {
-        const technic = expedient.tecnic || 'No assignat';
-        techCounts[technic] = (techCounts[technic] || 0) + 1;
-
-        const status = expedient.sentitInforme || 'Sense estat';
-        reportStatusCounts[status] = (reportStatusCounts[status] || 0) + 1;
-      });
+    // Report Status Distribution
+    const statusCounts: Record<string, number> = {};
+    allExpedientsForYear.forEach(exp => {
+        statusCounts[exp.sentitInforme] = (statusCounts[exp.sentitInforme] || 0) + 1;
+    });
+    const STATUS_COLORS: Record<string, string> = {
+        'Favorable': '#22c55e', 'Desfavorable': '#ef4444', 'Favorable condicionat (mixte)': '#eab308',
+        'Requeriment': '#f97316', 'Caducat/Arxivat': '#6b7280', 'Posar en consideració': '#a855f7'
+    };
+    stats.reportStatusDistribution = Object.entries(statusCounts)
+        .map(([name, value]) => ({ name, value, fill: STATUS_COLORS[name] || '#9ca3af' }))
+        .sort((a,b) => b.value - a.value);
+    
+    // Technician Workload
+    const technicianWorkload: TechnicianWorkload = {
+      headers: [], technicians: [], data: {}, rowTotals: {}, columnTotals: [], grandTotal: 0
+    };
+    const technicians = Array.from(new Set(allExpedientsForYear.map(e => e.tecnic))).sort();
+    technicianWorkload.technicians = technicians;
+    technicians.forEach(t => {
+        technicianWorkload.data[t] = {};
+        technicianWorkload.rowTotals[t] = 0;
     });
 
-    const technicianDistribution = Object.keys(techCounts).map((key, index) => ({
-      name: key,
-      value: techCounts[key],
-      fill: COLORS[index % COLORS.length],
-    }));
-
-    const reportStatusDistribution = Object.keys(reportStatusCounts).map((key, index) => ({
-      name: key,
-      value: reportStatusCounts[key],
-      fill: COLORS[(index + 2) % COLORS.length], // Offset colors
-    }));
-
-    const sortedYearCommissions = [...yearCommissions].sort((a, b) => {
-        const [dayA, monthA, yearA] = a.dataComissio.split('/').map(Number);
-        const [dayB, monthB, yearB] = b.dataComissio.split('/').map(Number);
-        const dateA = new Date(yearA, monthA - 1, dayA);
-        const dateB = new Date(yearB, monthB - 1, dayB);
+    const sortedCommissions = [...filteredCommissions].sort((a, b) => {
+        const dateA = new Date(a.dataComissio.split('/').reverse().join('-'));
+        const dateB = new Date(b.dataComissio.split('/').reverse().join('-'));
         return dateA.getTime() - dateB.getTime();
     });
-    
-    const workloadOverTime = sortedYearCommissions.map(c => {
-        const dateParts = c.dataComissio.split('/');
-        return {
-            date: `${dateParts[0]}/${dateParts[1]}`,
-            'Càrrega': c.numTemes,
-        }
-    });
 
-    const headers = sortedYearCommissions.map(c => ({
+    technicianWorkload.headers = sortedCommissions.map(c => ({
         date: c.dataComissio,
         isFuture: c.estat === 'Oberta'
     }));
-    const dateHeaders = headers.map(h => h.date);
+    technicianWorkload.columnTotals = new Array(technicianWorkload.headers.length).fill(0);
 
-    const technicians = adminData.tecnics.map(t => t.name);
-    
-    const workloadData: Record<string, Record<string, number>> = {};
+    sortedCommissions.forEach((c, colIndex) => {
+        const detail = detailsForYear.find(d => d.numActa === c.numActa);
+        if (detail) {
+            detail.expedients.forEach(exp => {
+                if (technicians.includes(exp.tecnic)) {
+                    technicianWorkload.data[exp.tecnic][c.dataComissio] = (technicianWorkload.data[exp.tecnic][c.dataComissio] || 0) + 1;
+                }
+            });
+        }
+    });
+
     technicians.forEach(tech => {
-        workloadData[tech] = {};
-        dateHeaders.forEach(date => {
-            workloadData[tech][date] = 0;
+        let rowTotal = 0;
+        technicianWorkload.headers.forEach((h, colIndex) => {
+            const val = technicianWorkload.data[tech][h.date] || 0;
+            rowTotal += val;
+            technicianWorkload.columnTotals[colIndex] += val;
         });
+        technicianWorkload.rowTotals[tech] = rowTotal;
     });
+    technicianWorkload.grandTotal = technicianWorkload.columnTotals.reduce((sum, total) => sum + total, 0);
+    stats.technicianWorkload = technicianWorkload;
 
-    yearCommissionDetails.forEach(detail => {
-        detail.expedients.forEach(expedient => {
-            const techName = expedient.tecnic;
-            if (workloadData[techName] && workloadData[techName][detail.sessio] !== undefined) {
-                workloadData[techName][detail.sessio]++;
-            }
-        });
+    return stats;
+
+  }, [data, filteredCommissions, selectedYear]);
+
+  // --- Handlers ---
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success', onUndo?: () => void) => {
+    setToast({ id: Date.now(), message, type, onUndo });
+  };
+  
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      setLoginError('');
+      const user = await api.login(email, password);
+      setCurrentUser(user);
+      await fetchData();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error d'inici de sessió";
+      setLoginError(errorMessage);
+    }
+  };
+  
+  const handleLogout = () => {
+    setModal({
+      title: 'Tancar Sessió',
+      message: 'Estàs segur que vols tancar la sessió?',
+      onConfirm: async () => {
+        await api.logout();
+        setCurrentUser(null);
+        setData(null);
+        setCurrentView('dashboard');
+      }
     });
-
-    const rowTotals: Record<string, number> = {};
-    technicians.forEach(tech => {
-        rowTotals[tech] = dateHeaders.reduce((sum, date) => sum + (workloadData[tech]?.[date] || 0), 0);
-    });
-
-    const columnTotals: number[] = [];
-    dateHeaders.forEach((date, index) => {
-        const total = technicians.reduce((sum, tech) => sum + (workloadData[tech]?.[date] || 0), 0);
-        columnTotals[index] = total;
-    });
-
-    const grandTotal = columnTotals.reduce((sum, total) => sum + total, 0);
-
-    const technicianWorkload: TechnicianWorkload = {
-        headers,
-        technicians,
-        data: workloadData,
-        rowTotals,
-        columnTotals,
-        grandTotal,
-    };
-
-    return {
-      technicianDistribution,
-      workloadOverTime,
-      reportStatusDistribution,
-      procedureTypeDistribution: [],
-      monthlyWorkload: [],
-      technicianWorkload,
-    };
-  }, [selectedYear, commissions, commissionDetails, adminData.tecnics]);
-
-  const toggleFocusMode = () => {
-    setIsFocusMode(prev => !prev);
   };
 
-  if (isLoading) {
+  const handleSelectCommission = async (commission: CommissionSummary) => {
+    setLoading(true);
+    try {
+      const detail = await api.getCommissionDetail(commission.numActa, commission.dataComissio);
+      if (detail) {
+        setCommissionDetail(detail);
+        setSelectedCommission(commission);
+        setCurrentView('detail');
+      } else {
+        showToast(`No s'han trobat detalls per a l'acta ${commission.numActa}`, 'error');
+      }
+    } catch (error) {
+      showToast("Error en carregar els detalls de la comissió", 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateCommission = async (numActa: number, dataComissio: string, field: keyof CommissionSummary, value: any) => {
+    try {
+      const updatedCommission = await api.updateCommissionSummary(numActa, dataComissio, field, value);
+      setData(prevData => {
+        if (!prevData) return null;
+        return {
+          ...prevData,
+          commissions: prevData.commissions.map(c => 
+            (c.numActa === numActa && c.dataComissio === dataComissio) ? updatedCommission : c
+          )
+        };
+      });
+    } catch (error) {
+      showToast("Error en actualitzar la comissió", 'error');
+    }
+  };
+
+  const handleMarkCommissionAsSent = async (numActa: number, dataComissio: string) => {
+    try {
+      const updatedCommission = await api.markCommissionAsSent(numActa, dataComissio);
+      setData(prevData => {
+        if (!prevData) return null;
+        return {
+          ...prevData,
+          commissions: prevData.commissions.map(c => 
+            (c.numActa === numActa && c.dataComissio === dataComissio) ? updatedCommission : c
+          )
+        };
+      });
+      showToast("Comissió marcada com a enviada.");
+    } catch (error) {
+      showToast("Error en marcar la comissió", 'error');
+    }
+  };
+  
+  const handleSaveCommissionDetails = async (detail: CommissionDetail) => {
+    try {
+      setLoading(true);
+      const savedDetail = await api.saveCommissionDetails(detail);
+      setData(prevData => {
+        if (!prevData) return null;
+        let found = false;
+        const updatedDetails = prevData.commissionDetails.map(d => {
+            if (d.numActa === savedDetail.numActa && d.sessio.endsWith(`/${selectedYear}`)) {
+                found = true;
+                return savedDetail;
+            }
+            return d;
+        });
+        if (!found) {
+            updatedDetails.push(savedDetail);
+        }
+        
+        const updatedCommissions = prevData.commissions.map(summary => 
+            (summary.numActa === savedDetail.numActa && summary.dataComissio.endsWith(`/${selectedYear}`)) ? { 
+              ...summary, 
+              numTemes: savedDetail.expedients.length,
+              estat: savedDetail.estat as CommissionStatus,
+            } : summary
+          );
+
+        return { ...prevData, commissionDetails: updatedDetails, commissions: updatedCommissions };
+      });
+      setCommissionDetail(savedDetail);
+      showToast("Canvis desats correctament.");
+      setCurrentView('dashboard');
+    } catch (error) {
+      showToast("Error en desar els canvis", 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateCommissions = () => {
+    setModal({
+      title: 'Generar Comissions',
+      message: 'Estàs segur que vols generar les comissions per al proper any? Aquesta acció no es pot desfer.',
+      onConfirm: async () => {
+        try {
+          const newCommissions = await api.generateNextYearCommissions();
+          setData(prevData => prevData ? { ...prevData, commissions: [...prevData.commissions, ...newCommissions] } : null);
+          await fetchData();
+          showToast(`S'han generat ${newCommissions.length} comissions.`, 'success');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : "Error desconegut";
+          showToast(errorMessage, 'error');
+        }
+      }
+    });
+  };
+
+  const handleAddCommission = () => {
+    setCommissionToEdit(null);
+    setIsCommissionModalOpen(true);
+  };
+
+  const handleEditCommission = (commission: CommissionSummary) => {
+    setCommissionToEdit(commission);
+    setIsCommissionModalOpen(true);
+  };
+
+  const handleDeleteCommission = (commission: CommissionSummary) => {
+    setModal({
+        title: 'Eliminar Comissió',
+        message: `Estàs segur que vols eliminar la comissió ${commission.numActa}/${commission.dataComissio.split('/')[2]}? Aquesta acció eliminarà també tots els seus expedients.`,
+        onConfirm: async () => {
+            try {
+                await api.deleteCommission(commission.numActa, commission.dataComissio);
+                await fetchData();
+                showToast('Comissió eliminada correctament.');
+            } catch (error) {
+                showToast('Error en eliminar la comissió', 'error');
+            }
+        }
+    });
+  };
+  
+  const handleSaveCommission = async (data: {numActa: number, dataComissio: string}) => {
+    try {
+        if (commissionToEdit) {
+            await api.updateCommission(commissionToEdit.numActa, commissionToEdit.dataComissio, data);
+            showToast('Comissió actualitzada correctament.');
+        } else {
+            await api.addCommission(data);
+            showToast('Comissió afegida correctament.');
+        }
+        await fetchData();
+        setIsCommissionModalOpen(false);
+        setCommissionToEdit(null);
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "S'ha produït un error";
+        showToast(errorMessage, 'error');
+    }
+  };
+  
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
+  // --- Render logic ---
+
+  if (loading && !data) {
     return (
-        <div className="flex items-center justify-center min-h-screen bg-[#f0e9f4] dark:bg-gray-900">
-            <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Carregant...</div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Carregant...</div>
+      </div>
     );
   }
 
   if (!currentUser) {
-    return <Login onLogin={handleLogin} error={authError} />;
+    return <Login onLogin={handleLogin} error={loginError} />;
   }
 
-  const renderView = () => {
-    switch (view) {
-      case 'detail':
-        return (
-          <CommissionDetailView
-            commissionDetail={selectedCommission ? getCommissionDetail(selectedCommission.numActa, selectedCommission.dataComissio) : undefined}
-            onBack={handleBackToDashboard}
-            onSave={handleSaveCommissionDetails}
-            adminData={adminData}
-            showToast={showToast}
-            currentUser={currentUser}
-          />
-        );
-      case 'admin':
-        return currentUser.role === 'admin' ? (
-            <AdminView 
-                adminData={adminData}
-                onUpdate={handleUpdateAdminItem}
-                onDelete={handleDeleteAdminItem}
-                onAdd={handleAddAdminItem}
-                onUpdateUser={handleUpdateUser}
-                onDeleteUser={handleDeleteUser}
-                onAddUser={handleAddUser}
-                onImportUsers={handleImportUsers}
-                onBack={handleBackToDashboard}
-            />
-        ) : (
-             <Dashboard
-                commissions={filteredCommissions}
-                onSelectCommission={handleSelectCommission}
-                statistics={filteredStatistics}
-                onUpdateCommission={handleUpdateCommissionSummary}
-                onMarkCommissionAsSent={handleMarkCommissionAsSent}
-                onNavigateToAdmin={handleNavigateToAdmin}
-                onGenerateCommissions={handleGenerateNextYearCommissions}
-                availableYears={availableYears}
-                selectedYear={selectedYear}
-                onYearChange={handleYearChange}
-                isFocusMode={isFocusMode}
-                onToggleFocusMode={toggleFocusMode}
-                theme={theme}
-                toggleTheme={toggleTheme}
-                onAddCommission={handleOpenAddCommissionModal}
-                onEditCommission={handleOpenEditCommissionModal}
-                onDeleteCommission={handleDeleteCommission}
-                currentUser={currentUser}
-                onLogout={handleLogout}
-          />
-        );
-      case 'dashboard':
-      default:
-        return (
-          <Dashboard
-            commissions={filteredCommissions}
-            onSelectCommission={handleSelectCommission}
-            statistics={filteredStatistics}
-            onUpdateCommission={handleUpdateCommissionSummary}
-            onMarkCommissionAsSent={handleMarkCommissionAsSent}
-            onNavigateToAdmin={handleNavigateToAdmin}
-            onGenerateCommissions={handleGenerateNextYearCommissions}
-            availableYears={availableYears}
-            selectedYear={selectedYear}
-            onYearChange={handleYearChange}
-            isFocusMode={isFocusMode}
-            onToggleFocusMode={toggleFocusMode}
-            theme={theme}
-            toggleTheme={toggleTheme}
-            onAddCommission={handleOpenAddCommissionModal}
-            onEditCommission={handleOpenEditCommissionModal}
-            onDeleteCommission={handleDeleteCommission}
-            currentUser={currentUser}
-            onLogout={handleLogout}
-          />
-        );
-    }
-  };
-
   return (
-    <div className="min-h-screen text-gray-800 dark:text-gray-200 p-4 lg:p-8 app-container">
-      {isFocusMode && (
-        <button
-          onClick={toggleFocusMode}
-          className="fixed top-4 right-4 z-50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-white dark:hover:bg-gray-700 shadow-lg transition-all no-print animate-fade-in"
-          title="Sortir del Mode Focus"
-        >
-          &times; Sortir del Mode Focus
-        </button>
-      )}
-      <Toast toast={toast} onClose={hideToast} />
-      <Modal 
-        isOpen={modalState.isOpen}
-        title={modalState.title}
-        message={modalState.message}
-        onClose={closeModal}
-        onConfirm={modalState.onConfirm}
-      />
-      <CommissionModal 
-        isOpen={isCommissionModalOpen}
-        onClose={handleCloseCommissionModal}
-        onSave={handleSaveCommission}
-        commission={editingCommission}
-        selectedYear={selectedYear}
-      />
-      {renderView()}
+    <div className={`min-h-screen font-sans bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300 ${isFocusMode ? 'focus-mode' : ''}`}>
+        <div className="p-4 md:p-8 max-w-screen-2xl mx-auto">
+            {!isFocusMode && (
+                <button 
+                    onClick={toggleTheme} 
+                    className="fixed bottom-4 left-4 z-50 p-3 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-full shadow-lg md:hidden"
+                >
+                    {theme === 'light' ? <MoonIcon/> : <SunIcon/>}
+                </button>
+            )}
+
+            {currentView === 'dashboard' && data && (
+                <Dashboard
+                    commissions={filteredCommissions}
+                    onSelectCommission={handleSelectCommission}
+                    statistics={statistics}
+                    onUpdateCommission={handleUpdateCommission}
+                    onMarkCommissionAsSent={handleMarkCommissionAsSent}
+                    onNavigateToAdmin={() => setCurrentView('admin')}
+                    onGenerateCommissions={handleGenerateCommissions}
+                    availableYears={availableYears}
+                    selectedYear={selectedYear}
+                    onYearChange={setSelectedYear}
+                    isFocusMode={isFocusMode}
+                    onToggleFocusMode={() => setIsFocusMode(!isFocusMode)}
+                    theme={theme}
+                    toggleTheme={toggleTheme}
+                    onAddCommission={handleAddCommission}
+                    onEditCommission={handleEditCommission}
+                    onDeleteCommission={handleDeleteCommission}
+                    currentUser={currentUser}
+                    onLogout={handleLogout}
+                />
+            )}
+            {currentView === 'detail' && commissionDetail && data && (
+                <CommissionDetailView
+                    commissionDetail={commissionDetail}
+                    onBack={() => { setCurrentView('dashboard'); setCommissionDetail(null); }}
+                    onSave={handleSaveCommissionDetails}
+                    adminData={data.adminData}
+                    currentUser={currentUser}
+                    isFocusMode={isFocusMode}
+                    onToggleFocusMode={() => setIsFocusMode(!isFocusMode)}
+                />
+            )}
+            {currentView === 'admin' && data && (
+                <AdminView
+                    adminData={data.adminData}
+                    onBack={() => setCurrentView('dashboard')}
+                    onDataChange={fetchData}
+                />
+            )}
+
+            <Toast toast={toast} onClose={() => setToast(null)} />
+            {modal && (
+                <Modal
+                    isOpen={!!modal}
+                    title={modal.title}
+                    message={modal.message}
+                    onClose={() => setModal(null)}
+                    onConfirm={modal.onConfirm}
+                />
+            )}
+            <CommissionModal 
+                isOpen={isCommissionModalOpen}
+                onClose={() => setIsCommissionModalOpen(false)}
+                onSave={handleSaveCommission}
+                commissionToEdit={commissionToEdit}
+                existingCommissions={data?.commissions || []}
+            />
+        </div>
     </div>
   );
 };

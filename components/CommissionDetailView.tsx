@@ -1,78 +1,72 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, ReportStatus, User } from './types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, User } from '../types';
 import ExpedientTable from './ExpedientTable';
+import { ClockIcon, WarningIcon, FocusIcon } from './icons/Icons';
 import EmailPreviewModal from './EmailPreviewModal';
-import { EmailIcon, TrashIcon } from './icons/Icons';
+import { GoogleGenAI } from "@google/genai";
 
 interface CommissionDetailViewProps {
-  commissionDetail?: CommissionDetail;
-  onBack: () => void;
-  onSave: (commissionDetail: CommissionDetail) => void;
-  adminData: AdminData;
-  showToast: (message: string, type?: 'success' | 'error', onUndo?: () => void) => void;
-  currentUser: User;
+    commissionDetail: CommissionDetail;
+    onBack: () => void;
+    onSave: (detail: CommissionDetail) => void;
+    adminData: AdminData;
+    currentUser: User;
+    isFocusMode: boolean;
+    onToggleFocusMode: () => void;
 }
 
-const InfoCard: React.FC<{ label: string; value: string | number; className?: string }> = ({ label, value, className = '' }) => (
-    <div className={`bg-gray-100 dark:bg-gray-800 p-3 rounded-lg info-card ${className}`}>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-        <p className="font-semibold text-gray-800 dark:text-gray-200">{value}</p>
-    </div>
-);
+const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
+    const { commissionDetail, onBack, onSave, adminData, currentUser, isFocusMode, onToggleFocusMode } = props;
+    
+    const [editedDetail, setEditedDetail] = useState<CommissionDetail>(JSON.parse(JSON.stringify(commissionDetail)));
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+    const [editingExpedientId, setEditingExpedientId] = useState<string | null>(null);
+    const [editedExpedientData, setEditedExpedientData] = useState<Expedient | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
+    const [aiSummary, setAiSummary] = useState('');
+    const [isAiLoading, setIsAiLoading] = useState(false);
 
-const initialFilters = {
-    peticionari: '',
-    procediment: '',
-    descripcio: '',
-    indret: '',
-    sentitInforme: '',
-    departament: '',
-    tecnic: '',
-};
+    useEffect(() => {
+        setEditedDetail(JSON.parse(JSON.stringify(commissionDetail)));
+    }, [commissionDetail]);
 
-const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionDetail, onBack, onSave, adminData, showToast, currentUser }) => {
-  const [editedDetail, setEditedDetail] = useState<CommissionDetail | undefined>(commissionDetail);
-  const [filters, setFilters] = useState(initialFilters);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'tecnic', direction: 'asc' });
-  const [isEmailModalOpen, setEmailModalOpen] = useState(false);
-  
-  const [editingExpedientId, setEditingExpedientId] = useState<string | null>(null);
-  const [editedExpedientData, setEditedExpedientData] = useState<Expedient | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [lastDeleted, setLastDeleted] = useState<{ expedient: Expedient, index: number } | null>(null);
+    const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
+    const hasChanges = useMemo(() => JSON.stringify(commissionDetail) !== JSON.stringify(editedDetail), [commissionDetail, editedDetail]);
 
-  const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
+    const sortedAndFilteredExpedients = useMemo(() => {
+        let expedients = [...editedDetail.expedients];
+        
+        if (searchTerm) {
+            const lowercasedTerm = searchTerm.toLowerCase();
+            expedients = expedients.filter(exp => 
+                Object.values(exp).some(value => 
+                    String(value).toLowerCase().includes(lowercasedTerm)
+                )
+            );
+        }
 
+        if (sortConfig !== null) {
+            expedients.sort((a, b) => {
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
 
-  useEffect(() => {
-    setEditedDetail(commissionDetail);
-    setEditingExpedientId(null);
-    setSelectedIds([]);
-  }, [commissionDetail]);
-
-  const handleFilterChange = (field: keyof typeof filters, value: string) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
-  };
-
-  const clearFilters = () => {
-    setFilters(initialFilters);
-  };
-
-  const filteredExpedients = useMemo(() => {
-    if (!editedDetail) return [];
-    return editedDetail.expedients.filter(exp => {
-      return (
-        exp.peticionari.toLowerCase().includes(filters.peticionari.toLowerCase()) &&
-        (filters.procediment === '' || exp.procediment === filters.procediment) &&
-        exp.descripcio.toLowerCase().includes(filters.descripcio.toLowerCase()) &&
-        exp.indret.toLowerCase().includes(filters.indret.toLowerCase()) &&
-        (filters.sentitInforme === '' || exp.sentitInforme === filters.sentitInforme) &&
-        (filters.departament === '' || exp.departament === filters.departament) &&
-        (filters.tecnic === '' || exp.tecnic === filters.tecnic)
-      );
-    });
-  }, [editedDetail, filters]);
+                if (aValue === undefined || aValue === null) return 1;
+                if (bValue === undefined || bValue === null) return -1;
+                
+                if (aValue < bValue) {
+                    return sortConfig.direction === 'asc' ? -1 : 1;
+                }
+                if (aValue > bValue) {
+                    return sortConfig.direction === 'asc' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return expedients;
+    }, [editedDetail.expedients, sortConfig, searchTerm]);
 
     const handleSort = (key: keyof Expedient) => {
         let direction: SortDirection = 'asc';
@@ -82,261 +76,237 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
         setSortConfig({ key, direction });
     };
 
-    const sortedExpedients = useMemo(() => {
-        const sortableItems = [...filteredExpedients];
-        if (sortConfig) {
-            sortableItems.sort((a, b) => {
-                const aValue = String(a[sortConfig.key] ?? '').toLowerCase();
-                const bValue = String(b[sortConfig.key] ?? '').toLowerCase();
-                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return sortableItems;
-    }, [filteredExpedients, sortConfig]);
-
-  const handleSaveAll = () => {
-    if (!canEdit) return;
-    if (editedDetail) {
-      if (editingExpedientId) {
-         handleSaveEdit(editingExpedientId);
-      }
-      const finalDetail = {
-        ...editedDetail,
-        expedients: editedDetail.expedients.map(({ isNew, ...rest }) => rest),
-        expedientsCount: editedDetail.expedients.length,
-      };
-      onSave(finalDetail);
-    }
-  };
-  
-  const handleAddExpedient = () => {
-    if (!canEdit) return;
-    const newExpedient: Expedient = {
-      id: `new-${Date.now()}`,
-      peticionari: '',
-      procediment: adminData.procediments[0]?.name || '',
-      descripcio: '',
-      indret: '',
-      sentitInforme: adminData.sentitInformes[0]?.name || 'Favorable',
-      departament: adminData.departaments[0]?.name || 'Urbanisme',
-      tecnic: adminData.tecnics[0]?.name || '',
-      isNew: true,
+    const handleAddExpedient = () => {
+        const newExpedient: Expedient = {
+            id: `new-${Date.now()}`,
+            peticionari: '',
+            procediment: '',
+            descripcio: '',
+            indret: '',
+            sentitInforme: '',
+            departament: 'Urbanisme',
+            tecnic: '',
+            isNew: true
+        };
+        setEditedDetail(prev => ({ ...prev, expedients: [newExpedient, ...prev.expedients] }));
+        setEditingExpedientId(newExpedient.id);
+        setEditedExpedientData(newExpedient);
     };
-    setEditedDetail(prev => {
-        if (!prev) return undefined;
-        const newExpedients = [...prev.expedients, newExpedient];
-        return { ...prev, expedients: newExpedients };
-    });
-    handleStartEdit(newExpedient);
-  };
 
-  const handleStartEdit = (expedient: Expedient) => {
-    if (!canEdit) return;
-    setEditingExpedientId(expedient.id);
-    setEditedExpedientData(expedient);
-  };
+    const handleStartEdit = (expedient: Expedient) => {
+        setEditingExpedientId(expedient.id);
+        setEditedExpedientData({ ...expedient });
+    };
 
-  const handleCancelEdit = () => {
-    if (editedExpedientData?.isNew) {
-        setEditedDetail(prev => prev ? { ...prev, expedients: prev.expedients.filter(e => e.id !== editedExpedientData.id) } : undefined);
-    }
-    setEditingExpedientId(null);
-    setEditedExpedientData(null);
-  };
-  
-  const handleSaveEdit = (id: string) => {
-    if (editedExpedientData) {
-        setEditedDetail(prev => prev ? { ...prev, expedients: prev.expedients.map(e => e.id === id ? { ...editedExpedientData, isNew: false } : e) } : undefined);
-    }
-    setEditingExpedientId(null);
-    setEditedExpedientData(null);
-  };
+    const handleCancelEdit = () => {
+        if (editedExpedientData?.isNew) {
+            setEditedDetail(prev => ({ ...prev, expedients: prev.expedients.filter(e => e.id !== editingExpedientId) }));
+        }
+        setEditingExpedientId(null);
+        setEditedExpedientData(null);
+    };
 
-  const handleEditChange = (field: keyof Expedient, value: string) => {
-    setEditedExpedientData(prev => prev ? { ...prev, [field]: value } : null);
-  };
+    const handleSaveEdit = (id: string) => {
+        if (!editedExpedientData || !editedExpedientData.id.trim() || editedExpedientData.id.startsWith('new-')) {
+            alert("El número d'expedient és obligatori i no pot ser temporal.");
+            return;
+        }
 
-  const handleDuplicateExpedient = (id: string) => {
-    if (!canEdit) return;
-    const expedientToDuplicate = editedDetail?.expedients.find(e => e.id === id);
-    if(expedientToDuplicate && editedDetail) {
-        const newExpedient = { ...expedientToDuplicate, id: `new-${Date.now()}`, isNew: true };
-        setEditedDetail(prev => prev ? { ...prev, expedients: [...prev.expedients, newExpedient] } : undefined);
-        showToast('Expedient duplicat.');
-    }
-  };
+        const isDuplicateId = editedDetail.expedients.some(exp => exp.id === editedExpedientData.id && exp.id !== id);
+        if (isDuplicateId) {
+            alert("Ja existeix un expedient amb aquest número.");
+            return;
+        }
 
-  const handleDeleteExpedient = (id: string) => {
-    if (!canEdit) return;
-    const index = editedDetail?.expedients.findIndex(e => e.id === id);
-    if (editedDetail && index !== undefined && index > -1) {
-        const expedientToDelete = editedDetail.expedients[index];
-        setLastDeleted({ expedient: expedientToDelete, index });
-        setEditedDetail(prev => prev ? { ...prev, expedients: prev.expedients.filter(e => e.id !== id) } : undefined);
-        showToast('Expedient eliminat', 'success', handleUndoDelete);
-    }
-  };
+        setEditedDetail(prev => ({
+            ...prev,
+            expedients: prev.expedients.map(exp => exp.id === id ? { ...editedExpedientData, isNew: false } : exp)
+        }));
+        setEditingExpedientId(null);
+        setEditedExpedientData(null);
+    };
 
-  const handleUndoDelete = () => {
-    if (lastDeleted) {
-        setEditedDetail(prev => {
-            if (!prev) return undefined;
-            const newExpedients = [...prev.expedients];
-            newExpedients.splice(lastDeleted.index, 0, lastDeleted.expedient);
-            return { ...prev, expedients: newExpedients };
-        });
-        showToast('Eliminació desfeta.');
-        setLastDeleted(null);
-    }
-  };
+    const handleEditChange = (field: keyof Expedient, value: string) => {
+        setEditedExpedientData(prev => prev ? { ...prev, [field]: value } : null);
+    };
 
-  const handleBulkDelete = () => {
-    if(!canEdit) return;
-    if(window.confirm(`Estàs segur que vols eliminar ${selectedIds.length} expedients?`)) {
-      setEditedDetail(prev => prev ? { ...prev, expedients: prev.expedients.filter(e => !selectedIds.includes(e.id)) } : undefined);
-      showToast(`${selectedIds.length} expedients eliminats.`);
-      setSelectedIds([]);
-    }
-  };
+    const handleDelete = (id: string) => {
+        setEditedDetail(prev => ({
+            ...prev,
+            expedients: prev.expedients.filter(exp => exp.id !== id)
+        }));
+    };
+    
+    const handleDeleteSelected = () => {
+        setEditedDetail(prev => ({
+            ...prev,
+            expedients: prev.expedients.filter(exp => !selectedIds.includes(exp.id))
+        }));
+        setSelectedIds([]);
+    };
 
-  const handleBulkChange = (field: keyof Expedient, value: string) => {
-    if (!canEdit || !value) return;
-    setEditedDetail(prev => prev ? {
-        ...prev,
-        expedients: prev.expedients.map(e => selectedIds.includes(e.id) ? { ...e, [field]: value } : e)
-    } : undefined);
-    showToast(`${selectedIds.length} expedients actualitzats.`);
-    setSelectedIds([]);
-  };
+    const handleDuplicate = (id: string) => {
+        const expedientToDuplicate = editedDetail.expedients.find(exp => exp.id === id);
+        if (expedientToDuplicate) {
+            const newExpedient: Expedient = {
+                ...expedientToDuplicate,
+                id: `new-${Date.now()}`,
+                isNew: true,
+            };
+            setEditedDetail(prev => ({ ...prev, expedients: [newExpedient, ...prev.expedients] }));
+            handleStartEdit(newExpedient);
+        }
+    };
+    
+    const handleSave = () => {
+        const finalDetail = { ...editedDetail, expedientsCount: editedDetail.expedients.length };
+        onSave(finalDetail);
+    };
 
-  if (!editedDetail) {
+    const handleGenerateAISummary = async () => {
+        // Fix: Use process.env.API_KEY as per guidelines
+        if (!process.env.API_KEY) {
+            setAiSummary("La clau API de Gemini no està configurada.");
+            return;
+        }
+        setIsAiLoading(true);
+        setAiSummary('');
+
+        try {
+            // Fix: Use new GoogleGenAI({apiKey: ...}) as per guidelines
+            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+
+            const expedientsText = editedDetail.expedients.map(e => 
+                `- ${e.procediment}: ${e.descripcio} a ${e.indret}. Informe: ${e.sentitInforme}. Tècnic: ${e.tecnic}.`
+            ).join('\n');
+            
+            const prompt = `Ets un assistent administratiu expert en urbanisme per a l'ajuntament de Tossa de Mar. Analitza la següent llista d'expedients de la comissió del dia ${editedDetail.sessio} i genera un resum concís en català. El resum ha de ser un paràgraf breu que destaqui els punts més importants, com ara el nombre total d'expedients, els tipus de procediments més comuns, la proporció d'informes favorables i desfavorables, i qualsevol projecte de gran rellevància si n'hi ha. No facis una llista, sinó un text cohesionat. Expedeints:\n${expedientsText}`;
+            
+            // Fix: Use ai.models.generateContent and correct model name as per guidelines
+            const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: prompt,
+            });
+            
+            // Fix: Use response.text to get the output as per guidelines
+            const text = response.text;
+            setAiSummary(text);
+
+        } catch (error) {
+            console.error("Error generating AI summary:", error);
+            setAiSummary("S'ha produït un error en generar el resum. Si us plau, intenta-ho de nou.");
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
     return (
-      <div className="text-center p-10 bg-white rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-red-500 mb-4">Error</h2>
-        <p className="text-gray-600 mb-6">No s'han trobat detalls per a aquesta comissió.</p>
-        <button
-          onClick={onBack}
-          className="bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-600 transition-colors no-print"
-        >
-          Tornar al dashboard
-        </button>
-      </div>
+        <div className="space-y-6 animate-fade-in">
+             {!isFocusMode && (
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <button onClick={onBack} className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline mb-2">&larr; Tornar al Panell</button>
+                        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Comissió d'Urbanisme - Acta {editedDetail.numActa}</h1>
+                        <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400 mt-2">
+                            <span className="flex items-center gap-2"><ClockIcon /> Sessió: {editedDetail.sessio}</span>
+                            <span>{editedDetail.expedients.length} Expedients</span>
+                        </div>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <button
+                          onClick={onToggleFocusMode}
+                          title="Mode Focus"
+                          className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400"
+                        >
+                            <FocusIcon />
+                        </button>
+                        {canEdit && (
+                            <button
+                                onClick={handleSave}
+                                disabled={!hasChanges}
+                                className="bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            >
+                                {hasChanges ? 'Desar Canvis' : 'Desat'}
+                            </button>
+                        )}
+                    </div>
+                </header>
+             )}
+            
+            {hasChanges && !isFocusMode && (
+                <div className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-200 p-4 rounded-md flex items-center gap-3">
+                    <WarningIcon />
+                    <span>Tens canvis sense desar. Recorda desar-los abans de sortir.</span>
+                </div>
+            )}
+            
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-xl">
+                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+                     <input 
+                        type="text"
+                        placeholder="Cerca a la taula..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="p-2 border rounded-md shadow-sm w-full sm:w-1/3 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                    <div className="flex items-center gap-2">
+                         {canEdit && selectedIds.length > 0 && (
+                             <button onClick={handleDeleteSelected} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-red-600">
+                                Eliminar ({selectedIds.length})
+                            </button>
+                         )}
+                         <button onClick={() => setIsEmailPreviewOpen(true)} className="bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600">
+                            Previsualitzar Enviament
+                        </button>
+                        {canEdit && (
+                            <button onClick={handleAddExpedient} className="bg-green-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-600">
+                                + Afegir Expedient
+                            </button>
+                        )}
+                    </div>
+                 </div>
+
+                <ExpedientTable
+                    expedients={sortedAndFilteredExpedients}
+                    adminData={adminData}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                    editingExpedientId={editingExpedientId}
+                    editedExpedientData={editedExpedientData}
+                    onStartEdit={handleStartEdit}
+                    onCancelEdit={handleCancelEdit}
+                    onSaveEdit={handleSaveEdit}
+                    onEditChange={handleEditChange}
+                    onDelete={handleDelete}
+                    onDuplicate={handleDuplicate}
+                    selectedIds={selectedIds}
+                    onSelectionChange={setSelectedIds}
+                    canEdit={canEdit}
+                />
+            </div>
+            
+             <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-xl">
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold">Resum amb Intel·ligència Artificial</h2>
+                    <button 
+                        onClick={handleGenerateAISummary}
+                        disabled={isAiLoading}
+                        className="bg-purple-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-purple-600 disabled:bg-gray-400"
+                    >
+                        {isAiLoading ? 'Generant...' : 'Generar Resum'}
+                    </button>
+                </div>
+                {isAiLoading && <p>Carregant resum...</p>}
+                {aiSummary && <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{aiSummary}</p>}
+             </div>
+
+            <EmailPreviewModal
+                isOpen={isEmailPreviewOpen}
+                onClose={() => setIsEmailPreviewOpen(false)}
+                commissionDetail={editedDetail}
+            />
+        </div>
     );
-  }
-
-  const { sessio, dataActual, hora, estat, mitja, numActa } = editedDetail;
-  const filterInputClasses = "w-full p-2 border rounded-md focus:outline-none focus-visible:ring-1 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600";
-
-  return (
-    <>
-    <EmailPreviewModal 
-        isOpen={isEmailModalOpen}
-        onClose={() => setEmailModalOpen(false)}
-        commissionDetail={editedDetail}
-    />
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl space-y-6 animate-fade-in printable-area">
-        <div className="flex justify-between items-start commission-header-print">
-            <div>
-                 <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Comissió Informativa d'Urbanisme</h1>
-                 <p className="text-gray-500 dark:text-gray-400">Ajuntament de Tossa de Mar</p>
-            </div>
-            <div className="flex items-center space-x-2 no-print">
-                <button onClick={() => setEmailModalOpen(true)} className="bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600 transition-colors flex items-center space-x-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-500">
-                    <EmailIcon />
-                    <span>Preparar per Email</span>
-                </button>
-                {canEdit && <button onClick={handleSaveAll} className="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500">Guardar Canvis</button>}
-                <button
-                    onClick={onBack}
-                    className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
-                >
-                    &larr; Tornar
-                </button>
-            </div>
-        </div>
-      
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 text-sm">
-            <InfoCard label="Sessió" value={sessio} />
-            <InfoCard label="Data Actual" value={dataActual} />
-            <InfoCard label="Hora" value={hora} />
-            <InfoCard label="Estat C.U." value={estat} className={estat === 'Finalitzada' ? 'bg-red-100 dark:bg-red-900/50' : 'bg-green-100 dark:bg-green-900/50'} />
-            <InfoCard label="Mitjà" value={mitja} />
-            <InfoCard label="Núm" value={numActa} />
-            <InfoCard label="Expedients" value={editedDetail.expedients.length} />
-        </div>
-        
-        {canEdit && selectedIds.length > 0 && (
-            <div className="p-3 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center flex-wrap gap-4 animate-fade-in no-print">
-                <span className="font-semibold text-indigo-800 dark:text-indigo-200">{selectedIds.length} seleccionats</span>
-                <select onChange={(e) => handleBulkChange('tecnic', e.target.value)} className="p-2 border rounded-md shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" defaultValue="">
-                    <option value="" disabled>Assignar Tècnic...</option>
-                    {adminData.tecnics.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
-                <select onChange={(e) => handleBulkChange('sentitInforme', e.target.value)} className="p-2 border rounded-md shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" defaultValue="">
-                    <option value="" disabled>Canviar Sentit...</option>
-                    {adminData.sentitInformes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
-                <button onClick={handleBulkDelete} className="p-2 text-red-600 hover:text-red-800 flex items-center gap-1 font-semibold ml-auto"><TrashIcon/> Eliminar Selecció</button>
-            </div>
-        )}
-        
-        <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border dark:border-gray-700 space-y-4 no-print">
-            <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Filtres</h3>
-                <button onClick={clearFilters} className="text-sm text-red-600 hover:underline font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded">Netejar Filtres</button>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <input type="text" placeholder="Filtrar per Peticionari/a..." value={filters.peticionari} onChange={e => handleFilterChange('peticionari', e.target.value)} className={filterInputClasses} />
-                <select value={filters.procediment} onChange={e => handleFilterChange('procediment', e.target.value)} className={filterInputClasses}>
-                    <option value="">Tots els Procediments</option>
-                    {adminData.procediments.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                </select>
-                <input type="text" placeholder="Filtrar per Descripció..." value={filters.descripcio} onChange={e => handleFilterChange('descripcio', e.target.value)} className={filterInputClasses} />
-                <input type="text" placeholder="Filtrar per Indret..." value={filters.indret} onChange={e => handleFilterChange('indret', e.target.value)} className={filterInputClasses} />
-                <select value={filters.sentitInforme} onChange={e => handleFilterChange('sentitInforme', e.target.value)} className={filterInputClasses}>
-                    <option value="">Tots els Sentits</option>
-                    {adminData.sentitInformes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                </select>
-                <select value={filters.departament} onChange={e => handleFilterChange('departament', e.target.value)} className={filterInputClasses}>
-                    <option value="">Tots els Departaments</option>
-                    {adminData.departaments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-                </select>
-                <select value={filters.tecnic} onChange={e => handleFilterChange('tecnic', e.target.value)} className={filterInputClasses}>
-                    <option value="">Tots els Tècnics</option>
-                    {adminData.tecnics.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-                </select>
-            </div>
-        </div>
-
-      <ExpedientTable 
-        expedients={sortedExpedients}
-        adminData={adminData}
-        sortConfig={sortConfig}
-        onSort={handleSort}
-        editingExpedientId={editingExpedientId}
-        editedExpedientData={editedExpedientData}
-        onStartEdit={handleStartEdit}
-        onCancelEdit={handleCancelEdit}
-        onSaveEdit={handleSaveEdit}
-        onEditChange={handleEditChange}
-        onDelete={handleDeleteExpedient}
-        onDuplicate={handleDuplicateExpedient}
-        selectedIds={selectedIds}
-        onSelectionChange={setSelectedIds}
-        canEdit={canEdit}
-      />
-    {canEdit && (
-        <div className="pt-4 no-print">
-            <button onClick={handleAddExpedient} className="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
-                + Afegir Expedient
-            </button>
-        </div>
-    )}
-    </div>
-    </>
-  );
 };
 
 export default CommissionDetailView;
