@@ -1,205 +1,197 @@
-import React from 'react';
-import { Expedient, ReportStatus, AdminData, SortConfig } from '../types';
-import { SortUpIcon, SortDownIcon, SortIcon, PencilIcon, DuplicateIcon, TrashIcon, CheckIcon, XIcon } from './icons/Icons';
 
-
-const ReportStatusBadge: React.FC<{ status: ReportStatus | string }> = ({ status }) => {
-    let colorClasses = 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-    switch (status) {
-        case 'Favorable':
-            colorClasses = 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300';
-            break;
-        case 'Desfavorable':
-            colorClasses = 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300';
-            break;
-        case 'Favorable condicionat (mixte)':
-            colorClasses = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300';
-            break;
-        case 'Posar en consideració':
-             colorClasses = 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300';
-             break;
-        case 'Caducat/Arxivat':
-            colorClasses = 'bg-gray-400 text-white dark:bg-gray-600';
-            break;
-        case 'Requeriment':
-            colorClasses = 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300';
-            break;
-    }
-    return (
-        <span className={`px-3 py-1 text-xs font-medium rounded-full ${colorClasses}`}>
-            {status}
-        </span>
-    );
-};
+import React, { useState, useMemo } from 'react';
+import { Expedient, AdminData, SortConfig, SortDirection } from '../types';
+import { SortUpIcon, SortDownIcon, SortIcon, TrashIcon } from './icons/Icons';
 
 interface ExpedientTableProps {
     expedients: Expedient[];
+    onExpedientsChange: (expedients: Expedient[]) => void;
     adminData: AdminData;
-    sortConfig: SortConfig | null;
-    onSort: (key: keyof Expedient) => void;
-    editingExpedientId: string | null;
-    editedExpedientData: Expedient | null;
-    onStartEdit: (expedient: Expedient) => void;
-    onCancelEdit: () => void;
-    onSaveEdit: (id: string) => void;
-    onEditChange: (field: keyof Expedient, value: string) => void;
-    onDelete: (id: string) => void;
-    onDuplicate: (id: string) => void;
-    selectedIds: string[];
-    onSelectionChange: (ids: string[]) => void;
     canEdit: boolean;
-    isSaving: boolean;
 }
 
-const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
-    const { 
-        expedients, adminData, sortConfig, onSort, editingExpedientId, editedExpedientData, 
-        onStartEdit, onCancelEdit, onSaveEdit, onEditChange, onDelete, onDuplicate,
-        selectedIds, onSelectionChange, canEdit, isSaving
-    } = props;
-    
-    const inputClass = "w-full p-2 border rounded bg-yellow-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400";
-    
-    const renderSortIcon = (key: keyof Expedient) => {
+const ExpedientTable: React.FC<ExpedientTableProps> = ({ expedients, onExpedientsChange, adminData, canEdit }) => {
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+
+    const sortedExpedients = useMemo(() => {
+        let sortableItems = [...expedients];
+        if (sortConfig !== null) {
+            sortableItems.sort((a, b) => {
+                const valA = a[sortConfig.key] || '';
+                const valB = b[sortConfig.key] || '';
+                if (valA < valB) {
+                    return sortConfig.direction === 'asc' ? -1 : 1;
+                }
+                if (valA > valB) {
+                    return sortConfig.direction === 'asc' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableItems;
+    }, [expedients, sortConfig]);
+
+    const requestSort = (key: keyof Expedient) => {
+        let direction: SortDirection = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key: keyof Expedient) => {
         if (!sortConfig || sortConfig.key !== key) {
             return <SortIcon />;
         }
         return sortConfig.direction === 'asc' ? <SortUpIcon /> : <SortDownIcon />;
     };
 
-    const headerClass = "px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/80 group transition-colors";
+    const handleFieldChange = (index: number, field: keyof Expedient, value: any) => {
+        const updatedExpedients = expedients.map((exp, i) =>
+            i === index ? { ...exp, [field]: value } : exp
+        );
+        onExpedientsChange(updatedExpedients);
+    };
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            onSelectionChange(expedients.map(exp => exp.id));
-        } else {
-            onSelectionChange([]);
+    const handleAddExpedient = () => {
+        const newExpedient: Expedient = {
+            id: `NOU-${Date.now()}`,
+            peticionari: '',
+            procediment: adminData.procediments[0]?.name || '',
+            descripcio: '',
+            indret: '',
+            sentitInforme: adminData.sentitInformes[0]?.name || '',
+            departament: adminData.departaments[0]?.name || '',
+            tecnic: adminData.tecnics[0]?.name || '',
+            isNew: true,
+        };
+        onExpedientsChange([...expedients, newExpedient]);
+    };
+
+    const handleDeleteExpedient = (index: number) => {
+        if (window.confirm("Segur que vols eliminar aquest expedient?")) {
+            const updatedExpedients = expedients.filter((_, i) => i !== index);
+            onExpedientsChange(updatedExpedients);
         }
     };
     
-    const handleSelectRow = (id: string, isSelected: boolean) => {
-        if (isSelected) {
-            onSelectionChange([...selectedIds, id]);
-        } else {
-            onSelectionChange(selectedIds.filter(selectedId => selectedId !== id));
+    const renderCell = (exp: Expedient, index: number, field: keyof Expedient) => {
+        if (!canEdit) {
+            return <td className="px-3 py-2 whitespace-nowrap text-gray-700 dark:text-gray-300">{exp[field]}</td>
         }
-    };
+        
+        const commonInputClass = "w-full p-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500";
+        
+        switch(field) {
+            case 'procediment':
+                return (
+                    <td className="px-1 py-1">
+                        <select value={exp.procediment} onChange={(e) => handleFieldChange(index, field, e.target.value)} className={commonInputClass}>
+                            <option value="">Selecciona...</option>
+                            {adminData.procediments.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                        </select>
+                    </td>
+                );
+            case 'sentitInforme':
+                return (
+                    <td className="px-1 py-1">
+                        <select value={exp.sentitInforme} onChange={(e) => handleFieldChange(index, field, e.target.value)} className={commonInputClass}>
+                             <option value="">Selecciona...</option>
+                            {adminData.sentitInformes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </select>
+                    </td>
+                );
+            case 'departament':
+                 return (
+                    <td className="px-1 py-1">
+                        <select value={exp.departament} onChange={(e) => handleFieldChange(index, field, e.target.value)} className={commonInputClass}>
+                            <option value="">Selecciona...</option>
+                            {adminData.departaments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                        </select>
+                    </td>
+                );
+            case 'tecnic':
+                 return (
+                    <td className="px-1 py-1">
+                        <select value={exp.tecnic} onChange={(e) => handleFieldChange(index, field, e.target.value)} className={commonInputClass}>
+                            <option value="">Selecciona...</option>
+                            {adminData.tecnics.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                        </select>
+                    </td>
+                );
+            default:
+                return (
+                    <td className="px-1 py-1">
+                        <input type="text" value={exp[field as keyof Omit<Expedient, 'isNew'>] as string} onChange={(e) => handleFieldChange(index, field, e.target.value)} className={commonInputClass} />
+                    </td>
+                );
+        }
+    }
+
 
     return (
-        <div className="overflow-x-auto">
-            <table className="min-w-full bg-white dark:bg-gray-800 border-collapse">
-                <thead className="bg-gray-50 dark:bg-gray-700/50">
-                    <tr>
-                        {canEdit && (
-                            <th className="p-4">
-                                <input 
-                                    type="checkbox" 
-                                    className="h-5 w-5 rounded border-gray-300 dark:border-gray-500 text-indigo-600 focus:ring-indigo-500"
-                                    checked={selectedIds.length === expedients.length && expedients.length > 0}
-                                    onChange={handleSelectAll}
-                                    aria-label="Seleccionar tots els expedients"
-                                    disabled={isSaving}
-                                />
-                            </th>
-                        )}
-                        <th className={headerClass} onClick={() => onSort('id')}>Núm. Expedient {renderSortIcon('id')}</th>
-                        <th className={headerClass} onClick={() => onSort('peticionari')}>Peticionàri/a {renderSortIcon('peticionari')}</th>
-                        <th className={headerClass} onClick={() => onSort('procediment')}>Procediment {renderSortIcon('procediment')}</th>
-                        <th className={headerClass} onClick={() => onSort('descripcio')}>Descripció {renderSortIcon('descripcio')}</th>
-                        <th className={headerClass} onClick={() => onSort('indret')}>Indret/Lloc/Situació {renderSortIcon('indret')}</th>
-                        <th className={headerClass} onClick={() => onSort('sentitInforme')}>Sentit informe {renderSortIcon('sentitInforme')}</th>
-                        <th className={headerClass} onClick={() => onSort('departament')}>Dpt. / Àrea {renderSortIcon('departament')}</th>
-                        <th className={headerClass} onClick={() => onSort('tecnic')}>Tècnic que informa {renderSortIcon('tecnic')}</th>
-                        {canEdit && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Accions</th>}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {expedients.map((expedient) => {
-                        const isEditing = editingExpedientId === expedient.id;
-                        const data = isEditing ? editedExpedientData : expedient;
-
-                        if (!data) return null;
-
-                        return (
-                        <tr key={expedient.id} className={`${isEditing ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-                           {canEdit && (
-                                <td className="p-4">
-                                    <input 
-                                        type="checkbox" 
-                                        className="h-5 w-5 rounded border-gray-300 dark:border-gray-500 text-indigo-600 focus:ring-indigo-500"
-                                        checked={selectedIds.includes(expedient.id)}
-                                        onChange={(e) => handleSelectRow(expedient.id, e.target.checked)}
-                                        aria-label={`Seleccionar expedient ${expedient.id}`}
-                                        disabled={isSaving}
-                                    />
-                                </td>
-                           )}
-                           {isEditing ? (
-                                <>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"><input type="text" value={data.id.startsWith('new-') ? '' : data.id} onChange={e => onEditChange('id', e.target.value)} className={inputClass} placeholder="Ex: 1234/2025" /></td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"><input type="text" value={data.peticionari} onChange={e => onEditChange('peticionari', e.target.value)} className={inputClass} /></td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                         <select value={data.procediment} onChange={e => onEditChange('procediment', e.target.value)} className={inputClass}>
-                                            <option value="">Selecciona...</option>
-                                            {adminData.procediments.map(proc => <option key={proc.id} value={proc.name}>{proc.name}</option>)}
-                                        </select>
-                                    </td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300"><input type="text" value={data.descripcio} onChange={e => onEditChange('descripcio', e.target.value)} className={inputClass} /></td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300"><input type="text" value={data.indret} onChange={e => onEditChange('indret', e.target.value)} className={inputClass} /></td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                        <select value={data.sentitInforme} onChange={e => onEditChange('sentitInforme', e.target.value)} className={inputClass}>
-                                            <option value="">Selecciona...</option>
-                                            {adminData.sentitInformes.map(status => <option key={status.id} value={status.name}>{status.name}</option>)}
-                                        </select>
-                                    </td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                        <select value={data.departament} onChange={e => onEditChange('departament', e.target.value)} className={inputClass}>
-                                            <option value="">Selecciona...</option>
-                                            {adminData.departaments.map(dept => <option key={dept.id} value={dept.name}>{dept.name}</option>)}
-                                        </select>
-                                    </td>
-                                    <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                        <select value={data.tecnic} onChange={e => onEditChange('tecnic', e.target.value)} className={inputClass}>
-                                             <option value="">Selecciona...</option>
-                                            {adminData.tecnics.map(tec => <option key={tec.id} value={tec.name}>{tec.name}</option>)}
-                                        </select>
-                                    </td>
-                                </>
-                           ) : (
-                                <>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{expedient.id}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{expedient.peticionari}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">{expedient.procediment}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">{expedient.descripcio}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">{expedient.indret}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300"><ReportStatusBadge status={expedient.sentitInforme} /></td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">{expedient.departament}</td>
-                                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{expedient.tecnic}</td>
-                                </>
-                           )}
-                           {canEdit && (
-                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                    <div className="flex items-center space-x-1">
-                                    {isEditing ? (
-                                        <>
-                                            <button onClick={() => onSaveEdit(expedient.id)} className="p-2 text-green-600 hover:text-green-800 rounded-full hover:bg-green-100 dark:hover:bg-green-900/50" title="Guardar"><CheckIcon/></button>
-                                            <button onClick={onCancelEdit} className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50" title="Cancel·lar"><XIcon/></button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button onClick={() => onStartEdit(expedient)} title="Editar" className="p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50" disabled={isSaving}><PencilIcon/></button>
-                                            <button onClick={() => onDuplicate(expedient.id)} title="Duplicar" className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50" disabled={isSaving}><DuplicateIcon/></button>
-                                            <button onClick={() => onDelete(expedient.id)} title="Eliminar" className="p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50" disabled={isSaving}><TrashIcon/></button>
-                                        </>
-                                    )}
-                                    </div>
-                                </td>
-                           )}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Llista d'Expedients</h2>
+                 {canEdit && (
+                     <button
+                        onClick={handleAddExpedient}
+                        className="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors"
+                     >
+                        + Afegir expedient
+                     </button>
+                 )}
+            </div>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            {[
+                                { key: 'id', label: 'Nº Expedient' },
+                                { key: 'peticionari', label: 'Peticionari/a' },
+                                { key: 'procediment', label: 'Procediment' },
+                                { key: 'descripcio', label: 'Descripció' },
+                                { key: 'indret', label: 'Indret' },
+                                { key: 'sentitInforme', label: 'Sentit Informe' },
+                                { key: 'departament', label: 'Departament' },
+                                { key: 'tecnic', label: 'Tècnic/a' },
+                            ].map(({ key, label }) => (
+                                <th key={key} scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <button onClick={() => requestSort(key as keyof Expedient)} className="group inline-flex items-center">
+                                        {label}
+                                        {getSortIcon(key as keyof Expedient)}
+                                    </button>
+                                </th>
+                            ))}
+                            {canEdit && <th scope="col" className="relative px-3 py-3"><span className="sr-only">Eliminar</span></th>}
                         </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {sortedExpedients.map((exp, index) => (
+                            <tr key={exp.id} className={`${exp.isNew ? 'bg-yellow-50 dark:bg-yellow-900/50' : ''} hover:bg-gray-50 dark:hover:bg-gray-700/50`}>
+                                {renderCell(exp, index, 'id')}
+                                {renderCell(exp, index, 'peticionari')}
+                                {renderCell(exp, index, 'procediment')}
+                                {renderCell(exp, index, 'descripcio')}
+                                {renderCell(exp, index, 'indret')}
+                                {renderCell(exp, index, 'sentitInforme')}
+                                {renderCell(exp, index, 'departament')}
+                                {renderCell(exp, index, 'tecnic')}
+                                {canEdit && (
+                                    <td className="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onClick={() => handleDeleteExpedient(index)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
+                                            <TrashIcon />
+                                        </button>
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+             {expedients.length === 0 && (
+                <p className="text-center py-8 text-gray-500">No hi ha expedients en aquesta comissió.</p>
+            )}
         </div>
     );
 };

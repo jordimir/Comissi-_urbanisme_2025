@@ -1,10 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
 import TechnicianWorkloadTable from './TechnicianWorkloadTable';
 import { CommissionSummary, StatisticsData, CommissionStatus, User } from '../types';
-import { RightArrowIcon } from './icons/Icons';
 
 interface DashboardProps {
   commissions: CommissionSummary[];
@@ -65,8 +65,9 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     return commissions
       .filter(c => statusFilter === 'all' || c.estat === statusFilter)
       .filter(c => 
-        c.numActa.toString().includes(searchTerm) || 
-        c.dataComissio.includes(searchTerm)
+        c.numActa.toString().includes(searchTerm.toLowerCase()) || 
+        c.dataComissio.includes(searchTerm.toLowerCase()) ||
+        c.diaSetmana.toLowerCase().includes(searchTerm.toLowerCase())
       );
   }, [commissions, searchTerm, statusFilter]);
 
@@ -117,7 +118,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                     <span className="text-xs font-semibold bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100 px-2 py-1 rounded-full">{c.estat}</span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 font-medium">{c.dataComissio}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{c.diaSetmana}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{c.diaSetmana}</p>
                 </div>
               ))}
             </div>
@@ -128,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           <div className="flex-grow w-full sm:w-auto">
             <input 
               type="text"
-              placeholder="Cerca per núm. d'acta o data..."
+              placeholder="Cerca per núm. d'acta, data o dia..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="p-2 border rounded-md shadow-sm w-full focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"

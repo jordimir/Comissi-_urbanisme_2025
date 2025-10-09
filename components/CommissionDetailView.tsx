@@ -1,317 +1,157 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, User } from '../types';
+import { CommissionDetail, AdminData, Expedient, User, CommissionStatus } from '../types';
 import ExpedientTable from './ExpedientTable';
-import { ClockIcon, WarningIcon, FocusIcon } from './icons/Icons';
 import EmailPreviewModal from './EmailPreviewModal';
-// Fix: Use GoogleGenAI instead of the deprecated GoogleGenerativeAI
-import { GoogleGenAI } from "@google/genai";
-import { logger } from '../logger';
 
 interface CommissionDetailViewProps {
-    commissionDetail: CommissionDetail;
-    onBack: () => void;
-    onSave: (detail: CommissionDetail) => void;
-    adminData: AdminData;
-    currentUser: User;
-    isFocusMode: boolean;
-    onToggleFocusMode: () => void;
-    isSaving: boolean;
+  commissionDetail: CommissionDetail;
+  adminData: AdminData;
+  onBack: () => void;
+  onSave: (detail: CommissionDetail) => void;
+  isSaving: boolean;
+  currentUser: User;
+  theme: 'light' | 'dark';
 }
 
-const CommissionDetailView: React.FC<CommissionDetailViewProps> = (props) => {
-    const { commissionDetail, onBack, onSave, adminData, currentUser, isFocusMode, onToggleFocusMode, isSaving } = props;
-    
-    const [editedDetail, setEditedDetail] = useState<CommissionDetail>(JSON.parse(JSON.stringify(commissionDetail)));
-    const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
-    const [editingExpedientId, setEditingExpedientId] = useState<string | null>(null);
-    const [editedExpedientData, setEditedExpedientData] = useState<Expedient | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
-    const [aiSummary, setAiSummary] = useState('');
-    const [isAiLoading, setIsAiLoading] = useState(false);
+const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionDetail, adminData, onBack, onSave, isSaving, currentUser }) => {
+  const [detail, setDetail] = useState<CommissionDetail>(JSON.parse(JSON.stringify(commissionDetail)));
+  const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
 
-    useEffect(() => {
-        setEditedDetail(JSON.parse(JSON.stringify(commissionDetail)));
-    }, [commissionDetail]);
+  useEffect(() => {
+    setDetail(JSON.parse(JSON.stringify(commissionDetail)));
+  }, [commissionDetail]);
 
-    const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
-    const hasChanges = useMemo(() => JSON.stringify(commissionDetail) !== JSON.stringify(editedDetail), [commissionDetail, editedDetail]);
+  const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
-    const sortedAndFilteredExpedients = useMemo(() => {
-        let expedients = [...editedDetail.expedients];
-        
-        if (searchTerm) {
-            const lowercasedTerm = searchTerm.toLowerCase();
-            expedients = expedients.filter(exp => 
-                Object.values(exp).some(value => 
-                    String(value).toLowerCase().includes(lowercasedTerm)
-                )
-            );
-        }
+  const handleDetailChange = (field: keyof Omit<CommissionDetail, 'expedients'>, value: string) => {
+    setDetail(prev => ({ ...prev, [field]: value }));
+  };
 
-        if (sortConfig !== null) {
-            expedients.sort((a, b) => {
-                const aValue = a[sortConfig.key];
-                const bValue = b[sortConfig.key];
+  const handleExpedientsChange = (updatedExpedients: Expedient[]) => {
+    setDetail(prev => ({ 
+        ...prev, 
+        expedients: updatedExpedients,
+        expedientsCount: updatedExpedients.length 
+    }));
+  };
 
-                if (aValue === undefined || aValue === null) return 1;
-                if (bValue === undefined || bValue === null) return -1;
-                
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'asc' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'asc' ? 1 : -1;
-                }
-                return 0;
-            });
-        }
-        return expedients;
-    }, [editedDetail.expedients, sortConfig, searchTerm]);
+  const hasChanges = useMemo(() => {
+    return JSON.stringify(detail) !== JSON.stringify(commissionDetail);
+  }, [detail, commissionDetail]);
 
-    const handleSort = (key: keyof Expedient) => {
-        let direction: SortDirection = 'asc';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
+  const handleSave = () => {
+    if (hasChanges) {
+      onSave(detail);
+    }
+  };
 
-    const handleAddExpedient = () => {
-        const newExpedient: Expedient = {
-            id: `new-${Date.now()}`,
-            peticionari: '',
-            procediment: '',
-            descripcio: '',
-            indret: '',
-            sentitInforme: '',
-            departament: 'Urbanisme',
-            tecnic: '',
-            isNew: true
-        };
-        setEditedDetail(prev => ({ ...prev, expedients: [newExpedient, ...prev.expedients] }));
-        setEditingExpedientId(newExpedient.id);
-        setEditedExpedientData(newExpedient);
-    };
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg">
+        <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Detall de la Comissió</h1>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => setIsEmailPreviewOpen(true)}
+                    className="bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition-colors disabled:bg-gray-400"
+                    disabled={detail.expedients.length === 0}
+                >
+                    Vista prèvia Email
+                </button>
+                <button
+                    onClick={onBack}
+                    className="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                    &larr; Tornar
+                </button>
+            </div>
+        </div>
 
-    const handleStartEdit = (expedient: Expedient) => {
-        setEditingExpedientId(expedient.id);
-        setEditedExpedientData({ ...expedient });
-    };
-
-    const handleCancelEdit = () => {
-        if (editedExpedientData?.isNew) {
-            setEditedDetail(prev => ({ ...prev, expedients: prev.expedients.filter(e => e.id !== editingExpedientId) }));
-        }
-        setEditingExpedientId(null);
-        setEditedExpedientData(null);
-    };
-
-    const handleSaveEdit = (id: string) => {
-        if (!editedExpedientData || !editedExpedientData.id.trim() || editedExpedientData.id.startsWith('new-')) {
-            alert("El número d'expedient és obligatori i no pot ser temporal.");
-            return;
-        }
-
-        const isDuplicateId = editedDetail.expedients.some(exp => exp.id === editedExpedientData.id && exp.id !== id);
-        if (isDuplicateId) {
-            alert("Ja existeix un expedient amb aquest número.");
-            return;
-        }
-
-        setEditedDetail(prev => ({
-            ...prev,
-            expedients: prev.expedients.map(exp => exp.id === id ? { ...editedExpedientData, isNew: false } : exp)
-        }));
-        setEditingExpedientId(null);
-        setEditedExpedientData(null);
-    };
-
-    const handleEditChange = (field: keyof Expedient, value: string) => {
-        setEditedExpedientData(prev => prev ? { ...prev, [field]: value } : null);
-    };
-
-    const handleDelete = (id: string) => {
-        setEditedDetail(prev => ({
-            ...prev,
-            expedients: prev.expedients.filter(exp => exp.id !== id)
-        }));
-    };
-    
-    const handleDeleteSelected = () => {
-        setEditedDetail(prev => ({
-            ...prev,
-            expedients: prev.expedients.filter(exp => !selectedIds.includes(exp.id))
-        }));
-        setSelectedIds([]);
-    };
-
-    const handleDuplicate = (id: string) => {
-        const expedientToDuplicate = editedDetail.expedients.find(exp => exp.id === id);
-        if (expedientToDuplicate) {
-            const newExpedient: Expedient = {
-                ...expedientToDuplicate,
-                id: `new-${Date.now()}`,
-                isNew: true,
-            };
-            setEditedDetail(prev => ({ ...prev, expedients: [newExpedient, ...prev.expedients] }));
-            handleStartEdit(newExpedient);
-        }
-    };
-    
-    const handleSave = () => {
-        const finalDetail = { ...editedDetail, expedientsCount: editedDetail.expedients.length };
-        onSave(finalDetail);
-    };
-
-    const handleGenerateAISummary = async () => {
-        if (!process.env.API_KEY) {
-            const message = "La clau API de Gemini no està configurada.";
-            setAiSummary(message);
-            logger.warn('Gemini API key is not configured.');
-            return;
-        }
-        setIsAiLoading(true);
-        setAiSummary('');
-        logger.info('Generating AI summary.', { numActa: editedDetail.numActa });
-
-        try {
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-
-            const expedientsText = editedDetail.expedients.map(e => 
-                `- ${e.procediment}: ${e.descripcio} a ${e.indret}. Informe: ${e.sentitInforme}. Tècnic: ${e.tecnic}.`
-            ).join('\n');
-            
-            const prompt = `Ets un assistent administratiu expert en urbanisme per a l'ajuntament de Tossa de Mar. Analitza la següent llista d'expedients de la comissió del dia ${editedDetail.sessio} i genera un resum concís en català. El resum ha de ser un pargraf breu que destaqui els punts més importants, com ara el nombre total d'expedients, els tipus de procediments més comuns, la proporció d'informes favorables i desfavorables, i qualsevol projecte de gran rellevància si n'hi ha. No facis una llista, sinó un text cohesionat. Expedeints:\n${expedientsText}`;
-            
-            const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: prompt,
-            });
-            
-            const text = response.text;
-            setAiSummary(text);
-            logger.info('AI summary generated successfully.', { numActa: editedDetail.numActa });
-
-        } catch (error) {
-            logger.error("Error generating AI summary:", { error, numActa: editedDetail.numActa });
-            setAiSummary("S'ha produït un error en generar el resum. Si us plau, intenta-ho de nou.");
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
-
-    return (
-        <div className="space-y-6 animate-fade-in">
-             {!isFocusMode && (
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <button onClick={onBack} className="text-indigo-600 dark:text-indigo-400 font-semibold hover:underline mb-2">&larr; Tornar al Panell</button>
-                        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Comissió d'Urbanisme - Acta {editedDetail.numActa}</h1>
-                        <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400 mt-2">
-                            <span className="flex items-center gap-2"><ClockIcon /> Sessió: {editedDetail.sessio}</span>
-                            <span>{editedDetail.expedients.length} Expedients</span>
-                        </div>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <button
-                          onClick={onToggleFocusMode}
-                          title="Mode Focus"
-                          className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400"
-                        >
-                            <FocusIcon />
-                        </button>
-                        {canEdit && (
-                            <button
-                                onClick={handleSave}
-                                disabled={!hasChanges || isSaving}
-                                className="bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                            >
-                                {isSaving ? 'Guardant...' : (hasChanges ? 'Desar Canvis' : 'Desat')}
-                            </button>
-                        )}
-                    </div>
-                </header>
-             )}
-            
-            {hasChanges && !isFocusMode && (
-                <div className="bg-yellow-100 dark:bg-yellow-900/50 border-l-4 border-yellow-500 text-yellow-800 dark:text-yellow-200 p-4 rounded-md flex items-center gap-3">
-                    <WarningIcon />
-                    <span>Tens canvis sense desar. Recorda desar-los abans de sortir.</span>
-                </div>
-            )}
-            
-            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-xl">
-                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-                     <input 
-                        type="text"
-                        placeholder="Cerca a la taula..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="p-2 border rounded-md shadow-sm w-full sm:w-1/3 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        disabled={isSaving}
-                    />
-                    <div className="flex items-center gap-2">
-                         {canEdit && selectedIds.length > 0 && (
-                             <button onClick={handleDeleteSelected} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-red-600 disabled:bg-gray-400" disabled={isSaving}>
-                                Eliminar ({selectedIds.length})
-                            </button>
-                         )}
-                         <button onClick={() => setIsEmailPreviewOpen(true)} className="bg-teal-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-teal-600 disabled:bg-gray-400" disabled={isSaving}>
-                            Previsualitzar Enviament
-                        </button>
-                        {canEdit && (
-                            <button onClick={handleAddExpedient} className="bg-green-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-600 disabled:bg-gray-400" disabled={isSaving}>
-                                + Afegir Expedient
-                            </button>
-                        )}
-                    </div>
-                 </div>
-
-                <ExpedientTable
-                    expedients={sortedAndFilteredExpedients}
-                    adminData={adminData}
-                    sortConfig={sortConfig}
-                    onSort={handleSort}
-                    editingExpedientId={editingExpedientId}
-                    editedExpedientData={editedExpedientData}
-                    onStartEdit={handleStartEdit}
-                    onCancelEdit={handleCancelEdit}
-                    onSaveEdit={handleSaveEdit}
-                    onEditChange={handleEditChange}
-                    onDelete={handleDelete}
-                    onDuplicate={handleDuplicate}
-                    selectedIds={selectedIds}
-                    onSelectionChange={setSelectedIds}
-                    canEdit={canEdit}
-                    isSaving={isSaving}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+            <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <label className="font-semibold text-gray-600 dark:text-gray-400 block">Nº Acta</label>
+                <p className="text-gray-900 dark:text-white font-medium">{detail.numActa}</p>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <label htmlFor="sessio" className="font-semibold text-gray-600 dark:text-gray-400 block">Data Sessió</label>
+                 <input
+                    id="sessio"
+                    type="text"
+                    value={detail.sessio}
+                    onChange={(e) => handleDetailChange('sessio', e.target.value)}
+                    className="w-full bg-transparent text-gray-900 dark:text-white font-medium focus:outline-none"
+                    readOnly={!canEdit}
                 />
             </div>
-            
-             <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-2xl shadow-xl">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">Resum amb Intel·ligència Artificial</h2>
-                    <button 
-                        onClick={handleGenerateAISummary}
-                        disabled={isAiLoading || isSaving}
-                        className="bg-purple-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-purple-600 disabled:bg-gray-400"
-                    >
-                        {isAiLoading ? 'Generant...' : 'Generar Resum'}
-                    </button>
-                </div>
-                {isAiLoading && <p>Carregant resum...</p>}
-                {aiSummary && <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{aiSummary}</p>}
-             </div>
-
-            <EmailPreviewModal
-                isOpen={isEmailPreviewOpen}
-                onClose={() => setIsEmailPreviewOpen(false)}
-                commissionDetail={editedDetail}
-            />
+            <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <label htmlFor="hora" className="font-semibold text-gray-600 dark:text-gray-400 block">Hora</label>
+                <input
+                    id="hora"
+                    type="text"
+                    value={detail.hora}
+                    onChange={(e) => handleDetailChange('hora', e.target.value)}
+                    className="w-full bg-transparent text-gray-900 dark:text-white font-medium focus:outline-none"
+                    readOnly={!canEdit}
+                />
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <label htmlFor="estat" className="font-semibold text-gray-600 dark:text-gray-400 block">Estat</label>
+                <select 
+                    id="estat"
+                    value={detail.estat}
+                    onChange={(e) => handleDetailChange('estat', e.target.value as CommissionStatus)}
+                    className="w-full bg-transparent text-gray-900 dark:text-white font-medium focus:outline-none appearance-none"
+                    disabled={!canEdit}
+                >
+                    <option value="Oberta">Oberta</option>
+                    <option value="Finalitzada">Finalitzada</option>
+                </select>
+            </div>
+             <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <label htmlFor="mitja" className="font-semibold text-gray-600 dark:text-gray-400 block">Mitjà</label>
+                <input
+                    id="mitja"
+                    type="text"
+                    value={detail.mitja}
+                    onChange={(e) => handleDetailChange('mitja', e.target.value)}
+                    className="w-full bg-transparent text-gray-900 dark:text-white font-medium focus:outline-none"
+                    readOnly={!canEdit}
+                />
+            </div>
+             <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                <label className="font-semibold text-gray-600 dark:text-gray-400 block">Nº Expedients</label>
+                <p className="text-gray-900 dark:text-white font-medium">{detail.expedients.length}</p>
+            </div>
         </div>
-    );
+      </div>
+      
+      <ExpedientTable
+        expedients={detail.expedients}
+        onExpedientsChange={handleExpedientsChange}
+        adminData={adminData}
+        canEdit={canEdit}
+      />
+
+      {canEdit && (
+        <div className="flex justify-end mt-6">
+            <button
+                onClick={handleSave}
+                disabled={!hasChanges || isSaving}
+                className="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+                {isSaving ? 'Desant...' : 'Desar Canvis'}
+            </button>
+        </div>
+      )}
+
+      <EmailPreviewModal 
+        isOpen={isEmailPreviewOpen}
+        onClose={() => setIsEmailPreviewOpen(false)}
+        commissionDetail={detail}
+      />
+    </div>
+  );
 };
 
 export default CommissionDetailView;
