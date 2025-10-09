@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { CalendarIcon, AdminIcon, FocusIcon, SunIcon, MoonIcon } from './icons/Icons';
+import { CalendarIcon, AdminIcon, FocusIcon, SunIcon, MoonIcon, LogoutIcon } from './icons/Icons';
+import { User } from '../types';
 
 interface HeaderProps {
     onNavigateToAdmin?: () => void;
@@ -8,9 +9,11 @@ interface HeaderProps {
     onToggleFocusMode?: () => void;
     theme: 'light' | 'dark';
     toggleTheme: () => void;
+    currentUser: User;
+    onLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onToggleFocusMode, theme, toggleTheme }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommissions, onToggleFocusMode, theme, toggleTheme, currentUser, onLogout }) => {
   return (
     <header className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl shadow-md">
       <div className="flex justify-between items-center">
@@ -26,6 +29,9 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
           </div>
         </div>
         <div className="flex items-center space-x-2">
+           <div className="hidden md:flex items-center space-x-2 mr-4">
+              <span className="font-semibold text-gray-700 dark:text-gray-300">Benvingut, {currentUser.name}</span>
+          </div>
           <button
             onClick={toggleTheme}
             title={theme === 'light' ? 'Activar mode fosc' : 'Activar mode clar'}
@@ -40,14 +46,16 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
           >
             <FocusIcon />
           </button>
-          <button
-            onClick={onGenerateCommissions}
-            title="Generar comissions del proper any"
-            className="hidden md:inline-flex p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-yellow-400"
-          >
-            <CalendarIcon />
-          </button>
-          {onNavigateToAdmin && (
+          {currentUser.role === 'admin' && (
+            <button
+                onClick={onGenerateCommissions}
+                title="Generar comissions del proper any"
+                className="hidden md:inline-flex p-3 bg-yellow-100 dark:bg-yellow-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-yellow-400"
+            >
+                <CalendarIcon />
+            </button>
+           )}
+          {currentUser.role === 'admin' && onNavigateToAdmin && (
              <button
                onClick={onNavigateToAdmin}
                title="Administració"
@@ -56,6 +64,13 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToAdmin, onGenerateCommission
                <AdminIcon />
              </button>
            )}
+            <button
+            onClick={onLogout}
+            title="Tancar Sessió"
+            className="hidden md:inline-flex p-3 bg-red-100 dark:bg-red-900/50 rounded-full transition-transform transform hover:scale-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400"
+          >
+            <LogoutIcon />
+          </button>
         </div>
       </div>
     </header>

@@ -4,7 +4,7 @@ import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
 import TechnicianWorkloadTable from './TechnicianWorkloadTable';
-import { CommissionSummary, StatisticsData, CommissionStatus } from '../types';
+import { CommissionSummary, StatisticsData, CommissionStatus, User } from '../types';
 import { RightArrowIcon } from './icons/Icons';
 
 interface DashboardProps {
@@ -25,6 +25,8 @@ interface DashboardProps {
   onAddCommission: () => void;
   onEditCommission: (commission: CommissionSummary) => void;
   onDeleteCommission: (commission: CommissionSummary) => void;
+  currentUser: User;
+  onLogout: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = (props) => {
@@ -46,6 +48,8 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     onAddCommission,
     onEditCommission,
     onDeleteCommission,
+    currentUser,
+    onLogout,
   } = props;
   
   const [isWorkloadTableVisible, setIsWorkloadTableVisible] = useState(false);
@@ -53,6 +57,8 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<CommissionStatus | 'all'>('all');
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
+
+  const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
   const filteredAndSearchedCommissions = useMemo(() => {
     return commissions
@@ -90,6 +96,8 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           onToggleFocusMode={onToggleFocusMode}
           theme={theme}
           toggleTheme={toggleTheme}
+          currentUser={currentUser}
+          onLogout={onLogout}
         />
       )}
       <main>
@@ -144,13 +152,15 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
-             <button
-              onClick={onAddCommission}
-              className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500"
-              title="Afegir nova comissió"
-            >
-              + Afegir
-            </button>
+             {canEdit && (
+                <button
+                    onClick={onAddCommission}
+                    className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500"
+                    title="Afegir nova comissió"
+                >
+                    + Afegir
+                </button>
+             )}
           </div>
         </div>
 
@@ -161,6 +171,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           onMarkCommissionAsSent={onMarkCommissionAsSent}
           onEditCommission={onEditCommission}
           onDeleteCommission={onDeleteCommission}
+          currentUser={currentUser}
         />
 
         <div className="my-6 flex justify-center gap-4 no-print">

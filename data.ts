@@ -351,7 +351,8 @@ export const adminData: AdminData = {
       { id: 'r3', name: 'Eva Barnés', email: 'ebarnes@tossa.cat'},
   ],
   users: [
-    { id: 'user-master', name: 'Admin Master', email: 'admin@tossa.cat', password: 'masterpassword' },
-    { id: 'user-1', name: 'Enginyer/a municipal', email: 'em@tossa.cat', password: 'password123' },
+    { id: 'user-master', name: 'Admin Master', email: 'admin@tossa.cat', password: 'masterpassword', role: 'admin' },
+    { id: 'user-1', name: 'Enginyer/a municipal', email: 'em@tossa.cat', password: 'password123', role: 'editor' },
+    { id: 'user-2', name: 'Consultor/a', email: 'viewer@tossa.cat', password: 'password123', role: 'viewer' },
   ]
 };

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { CommissionSummary, CommissionStatus } from '../types';
+import { CommissionSummary, CommissionStatus, User } from '../types';
 import { DotsVerticalIcon, EmailIcon } from './icons/Icons';
 
 interface CommissionOverviewTableProps {
@@ -10,6 +10,7 @@ interface CommissionOverviewTableProps {
   onMarkCommissionAsSent: (numActa: number, dataComissio: string) => void;
   onEditCommission: (commission: CommissionSummary) => void;
   onDeleteCommission: (commission: CommissionSummary) => void;
+  currentUser: User;
 }
 
 const CommissionStatusPill: React.FC<{ status: 'Finalitzada' | 'Oberta' }> = ({ status }) => {
@@ -27,7 +28,8 @@ const ActionsMenu: React.FC<{
     onSelect: Function;
     onEdit: Function;
     onDelete: Function;
-}> = ({ commission, onUpdate, onMarkAsSent, onSelect, onEdit, onDelete }) => {
+    currentUser: User;
+}> = ({ commission, onUpdate, onMarkAsSent, onSelect, onEdit, onDelete, currentUser }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -80,9 +82,12 @@ const ActionsMenu: React.FC<{
                     <option value="Finalitzada">Finalitzada</option>
                   </select>
              </li>
-
-            <li className="border-t border-gray-200 dark:border-gray-700 my-1"></li>
-            <li><button onClick={() => { onDelete(commission); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 font-semibold hover:bg-red-50 dark:hover:bg-red-900/50">Eliminar</button></li>
+            {currentUser.role === 'admin' && (
+                <>
+                    <li className="border-t border-gray-200 dark:border-gray-700 my-1"></li>
+                    <li><button onClick={() => { onDelete(commission); setIsOpen(false); }} className="w-full text-left px-4 py-2 text-red-600 dark:text-red-400 font-semibold hover:bg-red-50 dark:hover:bg-red-900/50">Eliminar</button></li>
+                </>
+            )}
           </ul>
         </div>
       )}
@@ -90,7 +95,9 @@ const ActionsMenu: React.FC<{
   );
 };
 
-const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commissions, onSelectCommission, onUpdateCommission, onMarkCommissionAsSent, onEditCommission, onDeleteCommission }) => {
+const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commissions, onSelectCommission, onUpdateCommission, onMarkCommissionAsSent, onEditCommission, onDeleteCommission, currentUser }) => {
+
+  const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
   const groupedCommissions = useMemo(() => {
     const groups: { [key: string]: CommissionSummary[] } = {};
@@ -153,26 +160,31 @@ const CommissionOverviewTable: React.FC<CommissionOverviewTableProps> = ({ commi
                       </div>
                        <div className="flex-shrink-0 flex items-center gap-2">
                             <CommissionStatusPill status={commission.estat} />
-                            <div className="w-28" onClick={(e) => e.stopPropagation()}>
-                                 <input
-                                    type="date"
-                                    aria-label="Data de l'email"
-                                    value={formatDateToYYYYMMDD(commission.dataEmail)}
-                                    disabled={!commission.avisEmail}
-                                    onChange={(e) => onUpdateCommission(commission.numActa, commission.dataComissio, 'dataEmail', formatDateToDDMMYYYY(e.target.value))}
-                                    className="w-full text-sm p-1 border rounded bg-transparent dark:bg-gray-700 dark:border-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                                />
-                            </div>
-                            <div onClick={(e) => e.stopPropagation()}>
-                                <ActionsMenu 
-                                    commission={commission}
-                                    onUpdate={onUpdateCommission}
-                                    onMarkAsSent={onMarkCommissionAsSent}
-                                    onSelect={onSelectCommission}
-                                    onEdit={onEditCommission}
-                                    onDelete={onDeleteCommission}
-                                />
-                            </div>
+                            {canEdit && (
+                                <div className="w-28" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                        type="date"
+                                        aria-label="Data de l'email"
+                                        value={formatDateToYYYYMMDD(commission.dataEmail)}
+                                        disabled={!commission.avisEmail}
+                                        onChange={(e) => onUpdateCommission(commission.numActa, commission.dataComissio, 'dataEmail', formatDateToDDMMYYYY(e.target.value))}
+                                        className="w-full text-sm p-1 border rounded bg-transparent dark:bg-gray-700 dark:border-gray-600 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                    />
+                                </div>
+                            )}
+                            {canEdit && (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                    <ActionsMenu 
+                                        commission={commission}
+                                        onUpdate={onUpdateCommission}
+                                        onMarkAsSent={onMarkCommissionAsSent}
+                                        onSelect={onSelectCommission}
+                                        onEdit={onEditCommission}
+                                        onDelete={onDeleteCommission}
+                                        currentUser={currentUser}
+                                    />
+                                </div>
+                            )}
                        </div>
                     </div>
                   ))}

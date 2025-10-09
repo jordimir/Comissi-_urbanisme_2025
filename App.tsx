@@ -4,6 +4,7 @@ import * as api from './api';
 import Dashboard from './components/Dashboard';
 import CommissionDetailView from './components/CommissionDetailView';
 import AdminView from './components/AdminView';
+import Login from './components/Login';
 import Modal from './components/Modal';
 import Toast from './components/Toast';
 import CommissionModal from './components/CommissionModal';
@@ -16,6 +17,8 @@ type Theme = 'light' | 'dark';
 const COLORS = ['#14b8a6', '#f97316', '#ef4444', '#8b5cf6', '#3b82f6', '#f43f5e', '#06b6d4', '#d946ef'];
 
 const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState('');
   const [view, setView] = useState<View>('dashboard');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCommission, setSelectedCommission] = useState<CommissionSummary | null>(null);
@@ -40,6 +43,19 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const checkSession = async () => {
+      const user = await api.getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        await fetchData();
+      } else {
+        setIsLoading(false);
+      }
+    };
+    checkSession();
+  }, []);
+
+  useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
@@ -60,23 +76,42 @@ const App: React.FC = () => {
     setToast(null);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const data = await api.getApplicationData();
-            setCommissions(data.commissions);
-            setCommissionDetails(data.commissionDetails);
-            setAdminData(data.adminData);
-        } catch (error) {
-            console.error("Failed to load application data", error);
-            showToast('No s\'han pogut carregar les dades de l\'aplicació.', 'error');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    fetchData();
-  }, []);
+  const fetchData = async () => {
+      setIsLoading(true);
+      try {
+          const data = await api.getApplicationData();
+          setCommissions(data.commissions);
+          setCommissionDetails(data.commissionDetails);
+          setAdminData(data.adminData);
+      } catch (error) {
+          console.error("Failed to load application data", error);
+          showToast('No s\'han pogut carregar les dades de l\'aplicació.', 'error');
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  const handleLogin = async (email: string, password: string) => {
+    setAuthError('');
+    setIsLoading(true);
+    try {
+      const user = await api.login(email, password);
+      setCurrentUser(user);
+      await fetchData();
+    } catch (error: any) {
+      setAuthError(error.message || "S'ha produït un error en iniciar la sessió.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await api.logout();
+    setCurrentUser(null);
+    setCommissions([]);
+    setCommissionDetails([]);
+    setAdminData(initialAdminData);
+    setView('dashboard');
+  };
 
   const availableYears = useMemo(() => 
     [...new Set(commissions.map(c => c.dataComissio.split('/')[2]))].sort((a, b) => Number(b) - Number(a))
@@ -100,6 +135,10 @@ const App: React.FC = () => {
   };
 
   const handleGenerateNextYearCommissions = useCallback(async () => {
+    if (currentUser?.role !== 'admin') {
+      showToast("No teniu permisos per realitzar aquesta acció.", 'error');
+      return;
+    }
     const lastYear = commissions.length > 0
         ? Math.max(...commissions.map(c => parseInt(c.dataComissio.split('/')[2], 10)))
         : new Date().getFullYear();
@@ -121,7 +160,7 @@ const App: React.FC = () => {
         }
       }
     });
-  }, [commissions]);
+  }, [commissions, currentUser]);
 
   const handleSelectCommission = useCallback(async (commission: CommissionSummary) => {
       try {
@@ -152,8 +191,12 @@ const App: React.FC = () => {
   }, []);
 
   const handleNavigateToAdmin = useCallback(() => {
-    setView('admin');
-  }, []);
+    if (currentUser?.role === 'admin') {
+      setView('admin');
+    } else {
+      showToast("No teniu permisos per accedir a l'administració.", 'error');
+    }
+  }, [currentUser]);
 
   const getCommissionDetail = (actaId: number, commissionDate: string): CommissionDetail | undefined => {
     const year = commissionDate.split('/')[2];
@@ -328,12 +371,12 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateUser = async (id: string, name: string, email: string, password?: string) => {
+  const handleUpdateUser = async (id: string, name: string, email: string, role: User['role'], password?: string) => {
       try {
-        await api.updateUser(id, name, email, password);
+        await api.updateUser(id, name, email, role, password);
         setAdminData(prev => ({
             ...prev,
-            users: prev.users.map(user => user.id === id ? { ...user, name, email } : user)
+            users: prev.users.map(user => user.id === id ? { ...user, name, email, role } : user)
         }));
         showToast('Usuari actualitzat.');
       } catch(error) {
@@ -354,9 +397,9 @@ const App: React.FC = () => {
           showToast('No s\'ha pogut eliminar l\'usuari.', 'error');
       }
   };
-  const handleAddUser = async (name: string, email: string, password?: string) => {
+  const handleAddUser = async (name: string, email: string, role: User['role'], password?: string) => {
       try {
-        const newUser = await api.addUser(name, email, password);
+        const newUser = await api.addUser(name, email, role, password);
         setAdminData(prev => ({...prev, users: [...prev.users, newUser]}));
         showToast('Usuari afegit.');
       } catch(error) {
@@ -493,9 +536,13 @@ const App: React.FC = () => {
   if (isLoading) {
     return (
         <div className="flex items-center justify-center min-h-screen bg-[#f0e9f4] dark:bg-gray-900">
-            <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Carregant dades...</div>
+            <div className="text-xl font-semibold text-gray-700 dark:text-gray-300">Carregant...</div>
         </div>
     );
+  }
+
+  if (!currentUser) {
+    return <Login onLogin={handleLogin} error={authError} />;
   }
 
   const renderView = () => {
@@ -508,10 +555,11 @@ const App: React.FC = () => {
             onSave={handleSaveCommissionDetails}
             adminData={adminData}
             showToast={showToast}
+            currentUser={currentUser}
           />
         );
       case 'admin':
-        return (
+        return currentUser.role === 'admin' ? (
             <AdminView 
                 adminData={adminData}
                 onUpdate={handleUpdateAdminItem}
@@ -523,6 +571,28 @@ const App: React.FC = () => {
                 onImportUsers={handleImportUsers}
                 onBack={handleBackToDashboard}
             />
+        ) : (
+             <Dashboard
+                commissions={filteredCommissions}
+                onSelectCommission={handleSelectCommission}
+                statistics={filteredStatistics}
+                onUpdateCommission={handleUpdateCommissionSummary}
+                onMarkCommissionAsSent={handleMarkCommissionAsSent}
+                onNavigateToAdmin={handleNavigateToAdmin}
+                onGenerateCommissions={handleGenerateNextYearCommissions}
+                availableYears={availableYears}
+                selectedYear={selectedYear}
+                onYearChange={handleYearChange}
+                isFocusMode={isFocusMode}
+                onToggleFocusMode={toggleFocusMode}
+                theme={theme}
+                toggleTheme={toggleTheme}
+                onAddCommission={handleOpenAddCommissionModal}
+                onEditCommission={handleOpenEditCommissionModal}
+                onDeleteCommission={handleDeleteCommission}
+                currentUser={currentUser}
+                onLogout={handleLogout}
+          />
         );
       case 'dashboard':
       default:
@@ -545,6 +615,8 @@ const App: React.FC = () => {
             onAddCommission={handleOpenAddCommissionModal}
             onEditCommission={handleOpenEditCommissionModal}
             onDeleteCommission={handleDeleteCommission}
+            currentUser={currentUser}
+            onLogout={handleLogout}
           />
         );
     }

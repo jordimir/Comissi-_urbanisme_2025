@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { AdminData, AdminList, User } from '../types';
 import { AdminIcon } from './icons/Icons';
@@ -116,9 +115,9 @@ const AdminListManager: React.FC<AdminListManagerProps> = ({ title, items, onUpd
 interface UserAdminManagerProps {
   title: string;
   items: User[];
-  onUpdate: (id: string, name: string, email: string, password?: string) => void;
+  onUpdate: (id: string, name: string, email: string, role: User['role'], password?: string) => void;
   onDelete: (id: string) => void;
-  onAdd: (name: string, email: string, password?: string) => void;
+  onAdd: (name: string, email: string, role: User['role'], password?: string) => void;
   onImport: (users: User[]) => void;
 }
 
@@ -126,20 +125,23 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
   const [newItemName, setNewItemName] = useState('');
   const [newItemEmail, setNewItemEmail] = useState('');
   const [newItemPassword, setNewItemPassword] = useState('');
+  const [newItemRole, setNewItemRole] = useState<User['role']>('viewer');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [editingEmail, setEditingEmail] = useState('');
   const [editingPassword, setEditingPassword] = useState('');
+  const [editingRole, setEditingRole] = useState<User['role']>('viewer');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAdd = () => {
     if (newItemName.trim() && newItemEmail.trim() && newItemPassword.trim()) {
-      onAdd(newItemName.trim(), newItemEmail.trim(), newItemPassword.trim());
+      onAdd(newItemName.trim(), newItemEmail.trim(), newItemRole, newItemPassword.trim());
       setNewItemName('');
       setNewItemEmail('');
       setNewItemPassword('');
+      setNewItemRole('viewer');
     }
   };
 
@@ -147,6 +149,7 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
     setEditingId(item.id);
     setEditingName(item.name);
     setEditingEmail(item.email);
+    setEditingRole(item.role);
     setEditingPassword('');
   };
 
@@ -155,19 +158,20 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
     setEditingName('');
     setEditingEmail('');
     setEditingPassword('');
+    setEditingRole('viewer');
   };
 
   const saveEdit = (id: string) => {
     if (editingName.trim() && editingEmail.trim()) {
-      onUpdate(id, editingName.trim(), editingEmail.trim(), editingPassword.trim() || undefined);
+      onUpdate(id, editingName.trim(), editingEmail.trim(), editingRole, editingPassword.trim() || undefined);
       cancelEditing();
     }
   };
 
   const handleExport = () => {
     const usersToExport = items.filter(user => user.id !== 'user-master');
-    const header = "id,name,email\n";
-    const csvContent = usersToExport.map(user => `${user.id},${user.name},${user.email}`).join("\n");
+    const header = "id,name,email,role\n";
+    const csvContent = usersToExport.map(user => `${user.id},${user.name},${user.email},${user.role}`).join("\n");
     const blob = new Blob([header + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     if (link.download !== undefined) {
@@ -201,18 +205,22 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
             const idIndex = header.indexOf('id');
             const nameIndex = header.indexOf('name');
             const emailIndex = header.indexOf('email');
+            const roleIndex = header.indexOf('role');
 
             if (idIndex === -1 || nameIndex === -1 || emailIndex === -1) {
-                alert("El fitxer CSV ha de contenir les columnes 'id', 'name', i 'email'.");
+                alert("El fitxer CSV ha de contenir les columnes 'id', 'name', i 'email'. La columna 'role' és opcional.");
                 return;
             }
             
             const importedUsers: User[] = lines.slice(1).map(line => {
                 const data = line.split(',');
+                const role = data[roleIndex]?.trim();
                 return {
                     id: data[idIndex]?.trim(),
                     name: data[nameIndex]?.trim(),
                     email: data[emailIndex]?.trim(),
+                    // Fix: Add type assertion to correctly type the role after validation.
+                    role: (role === 'admin' || role === 'editor' || role === 'viewer') ? role as User['role'] : 'viewer',
                 };
             }).filter(u => u.id && u.name && u.email); // Basic validation
             
@@ -240,6 +248,11 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
               <div className="space-y-2">
                  <input type="text" value={editingName} onChange={(e) => setEditingName(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nom" />
                  <input type="email" value={editingEmail} onChange={(e) => setEditingEmail(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Correu electrònic" />
+                 <select value={editingRole} onChange={e => setEditingRole(e.target.value as User['role'])} disabled={item.id === 'user-master'} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50">
+                    <option value="viewer">Visualitzador</option>
+                    <option value="editor">Editor</option>
+                    <option value="admin">Administrador</option>
+                 </select>
                  <input type="password" value={editingPassword} onChange={(e) => setEditingPassword(e.target.value)} className="w-full p-1 border rounded bg-yellow-50 dark:bg-gray-600 dark:border-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Nova contrasenya (deixar en blanc per no canviar)" />
                 <div className="flex items-center space-x-2">
                     <button onClick={() => saveEdit(item.id)} className="py-1 px-3 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-green-500">Guardar</button>
@@ -249,7 +262,7 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
             ) : (
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-gray-800 dark:text-gray-200 font-medium">{item.name}</p>
+                        <p className="text-gray-800 dark:text-gray-200 font-medium">{item.name} <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">({item.role})</span></p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{item.email}</p>
                     </div>
                     <div className="flex items-center space-x-2 flex-shrink-0">
@@ -265,6 +278,11 @@ const UserAdminManager: React.FC<UserAdminManagerProps> = ({ title, items, onUpd
         <h4 className="font-semibold text-gray-600 dark:text-gray-300">Afegir Nou Usuari</h4>
         <input type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} placeholder="Nom del nou usuari" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600" />
         <input type="email" value={newItemEmail} onChange={(e) => setNewItemEmail(e.target.value)} placeholder="Correu electrònic" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600" />
+        <select value={newItemRole} onChange={(e) => setNewItemRole(e.target.value as User['role'])} className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600">
+            <option value="viewer">Visualitzador</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Administrador</option>
+        </select>
         <input type="password" value={newItemPassword} onChange={(e) => setNewItemPassword(e.target.value)} placeholder="Contrasenya" className="w-full p-2 border rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-gray-700 dark:border-gray-600" />
         <button onClick={handleAdd} className="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">Afegir Usuari</button>
       </div>
@@ -277,9 +295,9 @@ interface AdminViewProps {
   onUpdate: (list: keyof AdminData, id: string, name: string, email?: string) => void;
   onDelete: (list: keyof AdminData, id: string) => void;
   onAdd: (list: keyof AdminData, name: string, email?: string) => void;
-  onUpdateUser: (id: string, name: string, email: string, password?: string) => void;
+  onUpdateUser: (id: string, name: string, email: string, role: User['role'], password?: string) => void;
   onDeleteUser: (id: string) => void;
-  onAddUser: (name: string, email: string, password?: string) => void;
+  onAddUser: (name: string, email: string, role: User['role'], password?: string) => void;
   onImportUsers: (users: User[]) => void;
   onBack: () => void;
 }

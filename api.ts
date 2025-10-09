@@ -6,13 +6,52 @@ import {
     adminData as initialAdminData 
 } from './data';
 
-// In-memory database, initialized with default data.
-// When a real backend is implemented, this will be replaced with API calls.
-let db: ApplicationData = {
-    commissions: JSON.parse(JSON.stringify(initialCommissions)),
-    commissionDetails: JSON.parse(JSON.stringify(initialCommissionDetails)),
-    adminData: JSON.parse(JSON.stringify(initialAdminData)),
+const DB_STORAGE_KEY = 'urbanisme_commission_data';
+const SESSION_STORAGE_KEY = 'urbanisme_session_user';
+
+// --- Database Initialization & Persistence ---
+
+// In-memory database, initialized from localStorage or default data.
+let db: ApplicationData;
+
+const _saveDb = () => {
+    try {
+        const serializedDb = JSON.stringify(db);
+        localStorage.setItem(DB_STORAGE_KEY, serializedDb);
+    } catch (error) {
+        console.error("Failed to save data to localStorage", error);
+    }
 };
+
+const _loadDb = (): ApplicationData | null => {
+    try {
+        const serializedDb = localStorage.getItem(DB_STORAGE_KEY);
+        if (serializedDb === null) {
+            return null;
+        }
+        return JSON.parse(serializedDb);
+    } catch (error) {
+        console.error("Failed to load data from localStorage", error);
+        return null;
+    }
+};
+
+const initializeDb = () => {
+    const loadedDb = _loadDb();
+    if (loadedDb) {
+        db = loadedDb;
+    } else {
+        // Initialize with default data if nothing in localStorage
+        db = {
+            commissions: JSON.parse(JSON.stringify(initialCommissions)),
+            commissionDetails: JSON.parse(JSON.stringify(initialCommissionDetails)),
+            adminData: JSON.parse(JSON.stringify(initialAdminData)),
+        };
+        _saveDb();
+    }
+};
+
+initializeDb();
 
 const SIMULATED_DELAY = 200; // ms
 
@@ -31,6 +70,39 @@ export const getDayOfWeekCatalan = (dateString: string): string => {
     const days = ['diumenge', 'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte'];
     return days[date.getDay()];
 };
+
+// --- Auth Functions ---
+
+export const login = async (email: string, password: string): Promise<User> => {
+    await delay();
+    const user = db.adminData.users.find(u => u.email === email && u.password === password);
+    if (user) {
+        const sessionUser: User = { id: user.id, name: user.name, email: user.email, role: user.role }; // Don't store password
+        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionUser));
+        return JSON.parse(JSON.stringify(sessionUser));
+    }
+    throw new Error("Credencials invàlides.");
+};
+
+export const logout = async (): Promise<void> => {
+    await delay();
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
+    await delay();
+    try {
+        const serializedUser = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (serializedUser === null) {
+            return null;
+        }
+        return JSON.parse(serializedUser);
+    } catch (error) {
+        console.error("Failed to load user from sessionStorage", error);
+        return null;
+    }
+};
+
 
 // --- API Functions ---
 
@@ -95,6 +167,7 @@ export const saveCommissionDetails = async (updatedDetail: CommissionDetail): Pr
         } : summary
       );
     
+    _saveDb();
     return JSON.parse(JSON.stringify(updatedDetail));
 };
 
@@ -112,6 +185,7 @@ export const updateCommissionSummary = async (numActa: number, dataComissio: str
         return c;
     });
     if (!updatedCommission) throw new Error("Commission not found");
+    _saveDb();
     return JSON.parse(JSON.stringify(updatedCommission));
 };
 
@@ -129,6 +203,7 @@ export const markCommissionAsSent = async (numActa: number, dataComissio: string
         return c;
     });
     if (!updatedCommission) throw new Error("Commission not found");
+    _saveDb();
     return JSON.parse(JSON.stringify(updatedCommission));
 };
 
@@ -176,6 +251,7 @@ export const generateNextYearCommissions = async (): Promise<CommissionSummary[]
         return dateA.getTime() - dateB.getTime();
     });
     
+    _saveDb();
     return JSON.parse(JSON.stringify(newCommissions));
 };
 
@@ -209,6 +285,7 @@ export const addCommission = async (commissionData: { dataComissio: string, numA
         return dateA.getTime() - dateB.getTime();
     });
 
+    _saveDb();
     return JSON.parse(JSON.stringify(newCommission));
 };
 
@@ -251,6 +328,7 @@ export const updateCommission = async (originalNumActa: number, originalDataComi
         detailToUpdate.sessio = updatedData.dataComissio;
     }
 
+    _saveDb();
     return JSON.parse(JSON.stringify(commissionToUpdate));
 };
 
@@ -260,6 +338,7 @@ export const deleteCommission = async (numActa: number, dataComissio: string): P
     
     db.commissions = db.commissions.filter(c => !(c.numActa === numActa && c.dataComissio === dataComissio));
     db.commissionDetails = db.commissionDetails.filter(d => !(d.numActa === numActa && d.sessio.endsWith(`/${year}`)));
+    _saveDb();
 };
 
 
@@ -270,6 +349,7 @@ export const updateAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: 
     db.adminData[list] = adminList.map(item =>
         item.id === id ? { ...item, name, email } : item
     ) as any;
+    _saveDb();
     return { id, name, email };
 };
 
@@ -277,6 +357,7 @@ export const deleteAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: 
     await delay();
     const adminList = db.adminData[list] as AdminList[];
     db.adminData[list] = adminList.filter(item => item.id !== id) as any;
+    _saveDb();
     return { success: true };
 };
 
@@ -288,14 +369,15 @@ export const addAdminItem = async (list: keyof Omit<AdminData, 'users'>, name: s
         email,
     };
     (db.adminData[list] as AdminList[]).push(newItem);
+    _saveDb();
     return JSON.parse(JSON.stringify(newItem));
 };
 
-export const updateUser = async (id: string, name: string, email: string, password?: string) => {
+export const updateUser = async (id: string, name: string, email: string, role: User['role'], password?: string) => {
     await delay();
     db.adminData.users = db.adminData.users.map(user => {
         if (user.id === id) {
-            const updatedUser: User = { ...user, name, email };
+            const updatedUser: User = { ...user, name, email, role };
             if (password) {
                 updatedUser.password = password;
             }
@@ -303,24 +385,28 @@ export const updateUser = async (id: string, name: string, email: string, passwo
         }
         return user;
     });
-    return { id, name, email };
+    _saveDb();
+    return { id, name, email, role };
 };
 
 export const deleteUser = async (id: string) => {
     await delay();
     db.adminData.users = db.adminData.users.filter(user => user.id !== id);
+    _saveDb();
     return { success: true };
 };
 
-export const addUser = async (name: string, email: string, password?: string) => {
+export const addUser = async (name: string, email: string, role: User['role'], password?: string) => {
     await delay();
     const newUser: User = {
         id: `user-${Date.now()}`,
         name,
         email,
+        role,
         password,
     };
     db.adminData.users.push(newUser);
+    _saveDb();
     return JSON.parse(JSON.stringify(newUser));
 };
 
@@ -333,15 +419,17 @@ export const importUsers = async (importedUsers: User[]): Promise<User[]> => {
 
         const existingUser = usersMap.get(importedUser.id);
         if (existingUser) {
-            usersMap.set(importedUser.id, { ...existingUser, name: importedUser.name, email: importedUser.email });
+            usersMap.set(importedUser.id, { ...existingUser, name: importedUser.name, email: importedUser.email, role: importedUser.role || 'viewer' });
         } else {
             usersMap.set(importedUser.id, {
                 ...importedUser,
-                password: 'changeme123'
+                password: 'changeme123',
+                role: importedUser.role || 'viewer',
             });
         }
     });
 
     db.adminData.users = Array.from(usersMap.values());
+    _saveDb();
     return JSON.parse(JSON.stringify(db.adminData.users));
 };

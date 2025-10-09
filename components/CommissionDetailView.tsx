@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, ReportStatus } from './types';
+import { CommissionDetail, Expedient, AdminData, SortConfig, SortDirection, ReportStatus, User } from './types';
 import ExpedientTable from './ExpedientTable';
 import EmailPreviewModal from './EmailPreviewModal';
 import { EmailIcon, TrashIcon } from './icons/Icons';
@@ -11,6 +11,7 @@ interface CommissionDetailViewProps {
   onSave: (commissionDetail: CommissionDetail) => void;
   adminData: AdminData;
   showToast: (message: string, type?: 'success' | 'error', onUndo?: () => void) => void;
+  currentUser: User;
 }
 
 const InfoCard: React.FC<{ label: string; value: string | number; className?: string }> = ({ label, value, className = '' }) => (
@@ -30,7 +31,7 @@ const initialFilters = {
     tecnic: '',
 };
 
-const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionDetail, onBack, onSave, adminData, showToast }) => {
+const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionDetail, onBack, onSave, adminData, showToast, currentUser }) => {
   const [editedDetail, setEditedDetail] = useState<CommissionDetail | undefined>(commissionDetail);
   const [filters, setFilters] = useState(initialFilters);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'tecnic', direction: 'asc' });
@@ -40,6 +41,8 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   const [editedExpedientData, setEditedExpedientData] = useState<Expedient | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastDeleted, setLastDeleted] = useState<{ expedient: Expedient, index: number } | null>(null);
+
+  const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
 
   useEffect(() => {
@@ -94,6 +97,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
     }, [filteredExpedients, sortConfig]);
 
   const handleSaveAll = () => {
+    if (!canEdit) return;
     if (editedDetail) {
       if (editingExpedientId) {
          handleSaveEdit(editingExpedientId);
@@ -108,6 +112,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   };
   
   const handleAddExpedient = () => {
+    if (!canEdit) return;
     const newExpedient: Expedient = {
       id: `new-${Date.now()}`,
       peticionari: '',
@@ -128,6 +133,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   };
 
   const handleStartEdit = (expedient: Expedient) => {
+    if (!canEdit) return;
     setEditingExpedientId(expedient.id);
     setEditedExpedientData(expedient);
   };
@@ -153,6 +159,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   };
 
   const handleDuplicateExpedient = (id: string) => {
+    if (!canEdit) return;
     const expedientToDuplicate = editedDetail?.expedients.find(e => e.id === id);
     if(expedientToDuplicate && editedDetail) {
         const newExpedient = { ...expedientToDuplicate, id: `new-${Date.now()}`, isNew: true };
@@ -162,6 +169,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   };
 
   const handleDeleteExpedient = (id: string) => {
+    if (!canEdit) return;
     const index = editedDetail?.expedients.findIndex(e => e.id === id);
     if (editedDetail && index !== undefined && index > -1) {
         const expedientToDelete = editedDetail.expedients[index];
@@ -185,6 +193,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   };
 
   const handleBulkDelete = () => {
+    if(!canEdit) return;
     if(window.confirm(`Estàs segur que vols eliminar ${selectedIds.length} expedients?`)) {
       setEditedDetail(prev => prev ? { ...prev, expedients: prev.expedients.filter(e => !selectedIds.includes(e.id)) } : undefined);
       showToast(`${selectedIds.length} expedients eliminats.`);
@@ -193,7 +202,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
   };
 
   const handleBulkChange = (field: keyof Expedient, value: string) => {
-    if (!value) return;
+    if (!canEdit || !value) return;
     setEditedDetail(prev => prev ? {
         ...prev,
         expedients: prev.expedients.map(e => selectedIds.includes(e.id) ? { ...e, [field]: value } : e)
@@ -238,7 +247,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
                     <EmailIcon />
                     <span>Preparar per Email</span>
                 </button>
-                <button onClick={handleSaveAll} className="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500">Guardar Canvis</button>
+                {canEdit && <button onClick={handleSaveAll} className="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500">Guardar Canvis</button>}
                 <button
                     onClick={onBack}
                     className="bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
@@ -258,7 +267,7 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
             <InfoCard label="Expedients" value={editedDetail.expedients.length} />
         </div>
         
-        {selectedIds.length > 0 && (
+        {canEdit && selectedIds.length > 0 && (
             <div className="p-3 bg-indigo-100 dark:bg-indigo-900/50 rounded-lg flex items-center flex-wrap gap-4 animate-fade-in no-print">
                 <span className="font-semibold text-indigo-800 dark:text-indigo-200">{selectedIds.length} seleccionats</span>
                 <select onChange={(e) => handleBulkChange('tecnic', e.target.value)} className="p-2 border rounded-md shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-indigo-500 focus:border-indigo-500" defaultValue="">
@@ -316,13 +325,15 @@ const CommissionDetailView: React.FC<CommissionDetailViewProps> = ({ commissionD
         onDuplicate={handleDuplicateExpedient}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
+        canEdit={canEdit}
       />
-
-      <div className="pt-4 no-print">
-          <button onClick={handleAddExpedient} className="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
-              + Afegir Expedient
-          </button>
-      </div>
+    {canEdit && (
+        <div className="pt-4 no-print">
+            <button onClick={handleAddExpedient} className="bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500">
+                + Afegir Expedient
+            </button>
+        </div>
+    )}
     </div>
     </>
   );

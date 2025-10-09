@@ -49,13 +49,14 @@ interface ExpedientTableProps {
     onDuplicate: (id: string) => void;
     selectedIds: string[];
     onSelectionChange: (ids: string[]) => void;
+    canEdit: boolean;
 }
 
 const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
     const { 
         expedients, adminData, sortConfig, onSort, editingExpedientId, editedExpedientData, 
         onStartEdit, onCancelEdit, onSaveEdit, onEditChange, onDelete, onDuplicate,
-        selectedIds, onSelectionChange
+        selectedIds, onSelectionChange, canEdit
     } = props;
     
     const inputClass = "w-full p-2 border rounded bg-yellow-50 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400";
@@ -90,15 +91,17 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
             <table className="min-w-full bg-white dark:bg-gray-800 border-collapse">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                        <th className="p-4">
-                            <input 
-                                type="checkbox" 
-                                className="h-5 w-5 rounded border-gray-300 dark:border-gray-500 text-indigo-600 focus:ring-indigo-500"
-                                checked={selectedIds.length === expedients.length && expedients.length > 0}
-                                onChange={handleSelectAll}
-                                aria-label="Seleccionar tots els expedients"
-                            />
-                        </th>
+                        {canEdit && (
+                            <th className="p-4">
+                                <input 
+                                    type="checkbox" 
+                                    className="h-5 w-5 rounded border-gray-300 dark:border-gray-500 text-indigo-600 focus:ring-indigo-500"
+                                    checked={selectedIds.length === expedients.length && expedients.length > 0}
+                                    onChange={handleSelectAll}
+                                    aria-label="Seleccionar tots els expedients"
+                                />
+                            </th>
+                        )}
                         <th className={headerClass} onClick={() => onSort('id')}>Núm. Expedient {renderSortIcon('id')}</th>
                         <th className={headerClass} onClick={() => onSort('peticionari')}>Peticionàri/a {renderSortIcon('peticionari')}</th>
                         <th className={headerClass} onClick={() => onSort('procediment')}>Procediment {renderSortIcon('procediment')}</th>
@@ -107,7 +110,7 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
                         <th className={headerClass} onClick={() => onSort('sentitInforme')}>Sentit informe {renderSortIcon('sentitInforme')}</th>
                         <th className={headerClass} onClick={() => onSort('departament')}>Dpt. / Àrea {renderSortIcon('departament')}</th>
                         <th className={headerClass} onClick={() => onSort('tecnic')}>Tècnic que informa {renderSortIcon('tecnic')}</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Accions</th>
+                        {canEdit && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Accions</th>}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -119,15 +122,17 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
 
                         return (
                         <tr key={expedient.id} className={`${isEditing ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-                           <td className="p-4">
-                                <input 
-                                    type="checkbox" 
-                                    className="h-5 w-5 rounded border-gray-300 dark:border-gray-500 text-indigo-600 focus:ring-indigo-500"
-                                    checked={selectedIds.includes(expedient.id)}
-                                    onChange={(e) => handleSelectRow(expedient.id, e.target.checked)}
-                                    aria-label={`Seleccionar expedient ${expedient.id}`}
-                                />
-                            </td>
+                           {canEdit && (
+                                <td className="p-4">
+                                    <input 
+                                        type="checkbox" 
+                                        className="h-5 w-5 rounded border-gray-300 dark:border-gray-500 text-indigo-600 focus:ring-indigo-500"
+                                        checked={selectedIds.includes(expedient.id)}
+                                        onChange={(e) => handleSelectRow(expedient.id, e.target.checked)}
+                                        aria-label={`Seleccionar expedient ${expedient.id}`}
+                                    />
+                                </td>
+                           )}
                            {isEditing ? (
                                 <>
                                     <td className="px-2 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap"><input type="text" value={data.id.startsWith('new-') ? '' : data.id} onChange={e => onEditChange('id', e.target.value)} className={inputClass} placeholder="Ex: 1234/2025" /></td>
@@ -171,22 +176,24 @@ const ExpedientTable: React.FC<ExpedientTableProps> = (props) => {
                                     <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">{expedient.tecnic}</td>
                                 </>
                            )}
-                           <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                                <div className="flex items-center space-x-1">
-                                {isEditing ? (
-                                    <>
-                                        <button onClick={() => onSaveEdit(expedient.id)} className="p-2 text-green-600 hover:text-green-800 rounded-full hover:bg-green-100 dark:hover:bg-green-900/50" title="Guardar"><CheckIcon/></button>
-                                        <button onClick={onCancelEdit} className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50" title="Cancel·lar"><XIcon/></button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button onClick={() => onStartEdit(expedient)} title="Editar" className="p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><PencilIcon/></button>
-                                        <button onClick={() => onDuplicate(expedient.id)} title="Duplicar" className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><DuplicateIcon/></button>
-                                        <button onClick={() => onDelete(expedient.id)} title="Eliminar" className="p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><TrashIcon/></button>
-                                    </>
-                                )}
-                                </div>
-                            </td>
+                           {canEdit && (
+                                <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                    <div className="flex items-center space-x-1">
+                                    {isEditing ? (
+                                        <>
+                                            <button onClick={() => onSaveEdit(expedient.id)} className="p-2 text-green-600 hover:text-green-800 rounded-full hover:bg-green-100 dark:hover:bg-green-900/50" title="Guardar"><CheckIcon/></button>
+                                            <button onClick={onCancelEdit} className="p-2 text-red-600 hover:text-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50" title="Cancel·lar"><XIcon/></button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button onClick={() => onStartEdit(expedient)} title="Editar" className="p-2 text-gray-500 hover:text-indigo-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><PencilIcon/></button>
+                                            <button onClick={() => onDuplicate(expedient.id)} title="Duplicar" className="p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><DuplicateIcon/></button>
+                                            <button onClick={() => onDelete(expedient.id)} title="Eliminar" className="p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600"><TrashIcon/></button>
+                                        </>
+                                    )}
+                                    </div>
+                                </td>
+                           )}
                         </tr>
                         );
                     })}
