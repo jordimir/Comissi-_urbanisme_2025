@@ -75,7 +75,11 @@ const App: React.FC = () => {
             addToast(`Benvingut/da, ${user.name}!`, 'success');
         } catch (error) {
             logger.error("Login failed", { error });
-            setLoginError((error as Error).message);
+            if (error instanceof Error) {
+                setLoginError(error.message);
+            } else {
+                setLoginError("S'ha produït un error desconegut durant l'inici de sessió.");
+            }
         }
     };
     
@@ -164,7 +168,13 @@ const App: React.FC = () => {
             addToast(`${newCommissions.length} noves comissions generades.`, 'success');
         } catch (error) {
             logger.error("Failed to generate commissions", { error });
-            addToast((error as Error).message, 'error');
+            // Fix: Ensure 'error' is properly handled as 'unknown' type.
+            // Check if it's an Error instance to safely access the message property.
+            if (error instanceof Error) {
+                addToast(error.message, 'error');
+            } else {
+                addToast("S'ha produït un error desconegut en generar les comissions.", 'error');
+            }
         } finally {
             setIsSaving(false);
         }
@@ -189,6 +199,11 @@ const App: React.FC = () => {
         return applicationData.commissions.filter(c => c.dataComissio.endsWith(`/${selectedYear}`));
     }, [applicationData, selectedYear]);
 
+    const filteredCommissionDetails = useMemo(() => {
+        if (!applicationData) return [];
+        return applicationData.commissionDetails.filter(d => d.sessio.endsWith(`/${selectedYear}`));
+    }, [applicationData, selectedYear]);
+
     const statisticsData = useMemo(() => {
       if (!applicationData) {
           return {
@@ -201,8 +216,7 @@ const App: React.FC = () => {
           };
       }
 
-      const commissionsForYearDetails = applicationData.commissionDetails.filter(d => d.sessio.endsWith(`/${selectedYear}`));
-      const allExpedients = commissionsForYearDetails.flatMap(d => d.expedients);
+      const allExpedients = filteredCommissionDetails.flatMap(d => d.expedients);
 
       const techCounts: { [key: string]: number } = {};
       allExpedients.forEach(e => {
@@ -263,7 +277,7 @@ const App: React.FC = () => {
       const technicianWorkload = calculateTechnicianWorkload(applicationData, selectedYear);
 
       return { technicianDistribution, workloadOverTime, reportStatusDistribution, technicianWorkload, procedureTypeDistribution: [], monthlyWorkload: [] };
-    }, [applicationData, selectedYear]);
+    }, [applicationData, selectedYear, filteredCommissionDetails]);
 
     const handleSaveCommissionFromModal = async (data: { numActa: number, dataComissio: string }) => {
         setIsSaving(true);
@@ -279,7 +293,11 @@ const App: React.FC = () => {
             setIsCommissionModalOpen(false);
         } catch (error) {
             logger.error("Failed to save commission from modal", { error });
-            addToast((error as Error).message, "error");
+            if (error instanceof Error) {
+                addToast(error.message, "error");
+            } else {
+                addToast("S'ha produït un error desconegut en desar la comissió.", "error");
+            }
         } finally {
             setIsSaving(false);
         }
@@ -306,7 +324,11 @@ const App: React.FC = () => {
             addToast("Comissió eliminada.", "success", handleUndo);
         } catch (error) {
             logger.error("Failed to delete commission", { error });
-            addToast((error as Error).message, "error");
+            if (error instanceof Error) {
+                addToast(error.message, "error");
+            } else {
+                addToast("S'ha produït un error desconegut en eliminar la comissió.", "error");
+            }
         } finally {
             setIsSaving(false);
         }
@@ -359,6 +381,7 @@ const App: React.FC = () => {
                 return (
                     <Dashboard
                         commissions={filteredCommissions}
+                        commissionDetails={filteredCommissionDetails}
                         onSelectCommission={handleSelectCommission}
                         statistics={statisticsData}
                         onUpdateCommission={handleUpdateCommissionSummary}

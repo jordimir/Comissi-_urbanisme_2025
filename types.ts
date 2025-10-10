@@ -114,3 +114,8 @@ export interface DeletedCommissionPayload {
     summary: CommissionSummary;
     detail: CommissionDetail | null;
 }
+
+export interface ChatMessage {
+    role: 'user' | 'model' | 'error';
+    text: string;
+}

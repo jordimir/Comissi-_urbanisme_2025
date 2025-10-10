@@ -4,10 +4,13 @@ import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
 import TechnicianWorkloadTable from './TechnicianWorkloadTable';
-import { CommissionSummary, StatisticsData, CommissionStatus, User } from '../types';
+import AIAssistantModal from './AIAssistantModal';
+import { CommissionSummary, StatisticsData, CommissionStatus, User, CommissionDetail } from '../types';
+import { SparklesIcon } from './icons/Icons';
 
 interface DashboardProps {
   commissions: CommissionSummary[];
+  commissionDetails: CommissionDetail[];
   onSelectCommission: (commission: CommissionSummary) => void;
   statistics: StatisticsData;
   onUpdateCommission: (numActa: number, dataComissio: string, field: keyof CommissionSummary, value: any) => void;
@@ -32,6 +35,7 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = (props) => {
   const { 
     commissions, 
+    commissionDetails,
     onSelectCommission, 
     statistics, 
     onUpdateCommission,
@@ -58,6 +62,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<CommissionStatus | 'all'>('all');
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
@@ -201,6 +206,19 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
 
         {isStatisticsVisible && <StatisticsView statistics={statistics} onTechnicianSelect={handleTechnicianSelect} theme={theme}/>}
       </main>
+       <button
+            onClick={() => setIsAiModalOpen(true)}
+            className="fixed bottom-8 right-8 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 transition-transform hover:scale-110"
+            title="Assistent IA"
+        >
+            <SparklesIcon />
+        </button>
+        <AIAssistantModal
+            isOpen={isAiModalOpen}
+            onClose={() => setIsAiModalOpen(false)}
+            commissions={commissions}
+            details={commissionDetails}
+        />
     </div>
   );
 };
