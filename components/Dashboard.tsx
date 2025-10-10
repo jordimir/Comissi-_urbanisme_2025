@@ -4,13 +4,11 @@ import Header from './Header';
 import CommissionOverviewTable from './CommissionOverviewTable';
 import StatisticsView from './StatisticsView';
 import TechnicianWorkloadTable from './TechnicianWorkloadTable';
-import AIAssistantModal from './AIAssistantModal';
-import { CommissionSummary, StatisticsData, CommissionStatus, User, CommissionDetail } from '../types';
-import { SparklesIcon } from './icons/Icons';
+import { CommissionSummary, StatisticsData, CommissionStatus } from '../types';
+import { RightArrowIcon } from './icons/Icons';
 
 interface DashboardProps {
   commissions: CommissionSummary[];
-  commissionDetails: CommissionDetail[];
   onSelectCommission: (commission: CommissionSummary) => void;
   statistics: StatisticsData;
   onUpdateCommission: (numActa: number, dataComissio: string, field: keyof CommissionSummary, value: any) => void;
@@ -27,15 +25,11 @@ interface DashboardProps {
   onAddCommission: () => void;
   onEditCommission: (commission: CommissionSummary) => void;
   onDeleteCommission: (commission: CommissionSummary) => void;
-  currentUser: User;
-  onLogout: () => void;
-  isSaving: boolean;
 }
 
 const Dashboard: React.FC<DashboardProps> = (props) => {
   const { 
     commissions, 
-    commissionDetails,
     onSelectCommission, 
     statistics, 
     onUpdateCommission,
@@ -52,9 +46,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
     onAddCommission,
     onEditCommission,
     onDeleteCommission,
-    currentUser,
-    onLogout,
-    isSaving
   } = props;
   
   const [isWorkloadTableVisible, setIsWorkloadTableVisible] = useState(false);
@@ -62,17 +53,13 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<CommissionStatus | 'all'>('all');
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>(null);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-
-  const canEdit = useMemo(() => currentUser.role === 'admin' || currentUser.role === 'editor', [currentUser.role]);
 
   const filteredAndSearchedCommissions = useMemo(() => {
     return commissions
       .filter(c => statusFilter === 'all' || c.estat === statusFilter)
       .filter(c => 
-        c.numActa.toString().includes(searchTerm.toLowerCase()) || 
-        c.dataComissio.includes(searchTerm.toLowerCase()) ||
-        c.diaSetmana.toLowerCase().includes(searchTerm.toLowerCase())
+        c.numActa.toString().includes(searchTerm) || 
+        c.dataComissio.includes(searchTerm)
       );
   }, [commissions, searchTerm, statusFilter]);
 
@@ -103,9 +90,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           onToggleFocusMode={onToggleFocusMode}
           theme={theme}
           toggleTheme={toggleTheme}
-          currentUser={currentUser}
-          onLogout={onLogout}
-          isSaving={isSaving}
         />
       )}
       <main>
@@ -123,7 +107,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                     <span className="text-xs font-semibold bg-yellow-200 text-yellow-800 dark:bg-yellow-700 dark:text-yellow-100 px-2 py-1 rounded-full">{c.estat}</span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400 font-medium">{c.dataComissio}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{c.diaSetmana}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{c.diaSetmana}</p>
                 </div>
               ))}
             </div>
@@ -134,11 +118,10 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           <div className="flex-grow w-full sm:w-auto">
             <input 
               type="text"
-              placeholder="Cerca per núm. d'acta, data o dia..."
+              placeholder="Cerca per núm. d'acta o data..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="p-2 border rounded-md shadow-sm w-full focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              disabled={isSaving}
             />
           </div>
           <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -146,7 +129,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              disabled={isSaving}
             >
               <option value="all">Tots els estats</option>
               <option value="Oberta">Oberta</option>
@@ -157,22 +139,18 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
               value={selectedYear}
               onChange={(e) => onYearChange(e.target.value)}
               className="p-2 border rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              disabled={isSaving}
             >
               {availableYears.map(year => (
                 <option key={year} value={year}>{year}</option>
               ))}
             </select>
-             {canEdit && (
-                <button
-                    onClick={onAddCommission}
-                    className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    title="Afegir nova comissió"
-                    disabled={isSaving}
-                >
-                    + Afegir
-                </button>
-             )}
+             <button
+              onClick={onAddCommission}
+              className="p-2 bg-indigo-500 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500"
+              title="Afegir nova comissió"
+            >
+              + Afegir
+            </button>
           </div>
         </div>
 
@@ -183,8 +161,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           onMarkCommissionAsSent={onMarkCommissionAsSent}
           onEditCommission={onEditCommission}
           onDeleteCommission={onDeleteCommission}
-          currentUser={currentUser}
-          isSaving={isSaving}
         />
 
         <div className="my-6 flex justify-center gap-4 no-print">
@@ -206,19 +182,6 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
 
         {isStatisticsVisible && <StatisticsView statistics={statistics} onTechnicianSelect={handleTechnicianSelect} theme={theme}/>}
       </main>
-       <button
-            onClick={() => setIsAiModalOpen(true)}
-            className="fixed bottom-8 right-8 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-indigo-500 transition-transform hover:scale-110"
-            title="Assistent IA"
-        >
-            <SparklesIcon />
-        </button>
-        <AIAssistantModal
-            isOpen={isAiModalOpen}
-            onClose={() => setIsAiModalOpen(false)}
-            commissions={commissions}
-            details={commissionDetails}
-        />
     </div>
   );
 };

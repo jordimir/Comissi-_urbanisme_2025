@@ -1,61 +1,50 @@
 
 import React, { useEffect } from 'react';
 import { ToastMessage } from '../types';
-import { CheckIcon, XIcon, WarningIcon } from './icons/Icons';
 
 interface ToastProps {
-  toasts: ToastMessage[];
-  onRemove: (id: number) => void;
+  toast: ToastMessage | null;
+  onClose: () => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ toasts, onRemove }) => {
+const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
+  useEffect(() => {
+    if (toast) {
+      const duration = toast.onUndo ? 5000 : 3000;
+      const timer = setTimeout(() => {
+        onClose();
+      }, duration);
+      return () => clearTimeout(timer);
+    }
+  }, [toast, onClose]);
+
+  if (!toast) {
+    return null;
+  }
+
+  const handleUndo = () => {
+    if (toast.onUndo) {
+        toast.onUndo();
+    }
+    onClose();
+  };
+
+  const baseClasses = "fixed bottom-5 right-5 flex items-center p-4 text-white rounded-lg shadow-lg z-50 animate-slide-up";
+  const typeClasses = toast.type === 'success'
+    ? 'bg-green-500'
+    : 'bg-red-500';
+
   return (
-    <div className="fixed bottom-4 right-4 z-[100] w-full max-w-xs space-y-2">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
-      ))}
+    <div className={`${baseClasses} ${typeClasses}`}>
+      <span className="flex-grow">{toast.message}</span>
+      {toast.onUndo && (
+        <button onClick={handleUndo} className="ml-4 font-bold py-1 px-2 rounded-md bg-white/20 hover:bg-white/40 transition-colors">
+            Desfer
+        </button>
+      )}
+      <button onClick={onClose} className="ml-4 font-bold text-xl leading-none">&times;</button>
     </div>
   );
-};
-
-interface ToastItemProps {
-  toast: ToastMessage;
-  onRemove: (id: number) => void;
-}
-
-const ToastItem: React.FC<ToastItemProps> = ({ toast, onRemove }) => {
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            onRemove(toast.id);
-        }, 5000);
-
-        return () => {
-            clearTimeout(timer);
-        };
-    }, [toast.id, onRemove]);
-
-    const isSuccess = toast.type === 'success';
-
-    return (
-        <div className={`flex items-center justify-between p-3 rounded-lg shadow-lg text-white animate-slide-up-toast ${isSuccess ? 'bg-green-500' : 'bg-red-500'}`}>
-            <div className="flex items-center">
-                <div className="flex-shrink-0">
-                    {isSuccess ? <CheckIcon /> : <WarningIcon />}
-                </div>
-                <div className="ml-3">
-                    <p className="text-sm font-medium">{toast.message}</p>
-                    {toast.onUndo && (
-                        <button onClick={() => { toast.onUndo?.(); onRemove(toast.id); }} className="mt-1 text-sm font-bold hover:underline">
-                            Desfer
-                        </button>
-                    )}
-                </div>
-            </div>
-            <button onClick={() => onRemove(toast.id)} className="ml-4 p-1 rounded-full hover:bg-black/20">
-                <XIcon />
-            </button>
-        </div>
-    );
 };
 
 export default Toast;

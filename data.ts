@@ -23,9 +23,9 @@ export const commissions: CommissionSummary[] = [
   { numActa: 20, numTemes: 6, diaSetmana: 'dimecres', dataComissio: '8/10/2025', avisEmail: true, dataEmail: '02/10/2025', estat: 'Oberta' },
   { numActa: 21, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '22/10/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
   { numActa: 22, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '5/11/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
-  { numActa: 23, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '19/11/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
-  { numActa: 24, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '3/12/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
-  { numActa: 25, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '17/12/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
+  { numActa: 22, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '19/11/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
+  { numActa: 22, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '3/12/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
+  { numActa: 23, numTemes: 0, diaSetmana: 'dimecres', dataComissio: '17/12/2025', avisEmail: false, dataEmail: null, estat: 'Oberta' },
 ];
 
 export const commissionDetails: CommissionDetail[] = [
@@ -351,8 +351,7 @@ export const adminData: AdminData = {
       { id: 'r3', name: 'Eva Barnés', email: 'ebarnes@tossa.cat'},
   ],
   users: [
-    { id: 'user-master', name: 'Admin Master', email: 'admin@tossa.cat', password: 'masterpassword', role: 'admin' },
-    { id: 'user-1', name: 'Enginyer/a municipal', email: 'em@tossa.cat', password: 'password123', role: 'editor' },
-    { id: 'user-2', name: 'Consultor/a', email: 'viewer@tossa.cat', password: 'password123', role: 'viewer' },
+    { id: 'user-master', name: 'Admin Master', email: 'admin@tossa.cat', password: 'masterpassword' },
+    { id: 'user-1', name: 'Enginyer/a municipal', email: 'em@tossa.cat', password: 'password123' },
   ]
 };

@@ -1,59 +1,18 @@
 
-import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList, DeletedCommissionPayload, CommissionStatus } from './types';
+import { CommissionSummary, CommissionDetail, AdminData, ApplicationData, User, AdminList } from './types';
 import { 
     commissions as initialCommissions, 
     commissionDetails as initialCommissionDetails, 
     adminData as initialAdminData 
 } from './data';
-import { logger } from './logger';
 
-const DB_STORAGE_KEY = 'urbanisme_commission_data';
-const SESSION_STORAGE_KEY = 'urbanisme_session_user';
-
-// --- Database Initialization & Persistence ---
-
-// In-memory database, initialized from localStorage or default data.
-let db: ApplicationData;
-
-const _saveDb = () => {
-    try {
-        const serializedDb = JSON.stringify(db);
-        localStorage.setItem(DB_STORAGE_KEY, serializedDb);
-    } catch (error) {
-        logger.error("Failed to save data to localStorage", { error });
-    }
+// In-memory database, initialized with default data.
+// When a real backend is implemented, this will be replaced with API calls.
+let db: ApplicationData = {
+    commissions: JSON.parse(JSON.stringify(initialCommissions)),
+    commissionDetails: JSON.parse(JSON.stringify(initialCommissionDetails)),
+    adminData: JSON.parse(JSON.stringify(initialAdminData)),
 };
-
-const _loadDb = (): ApplicationData | null => {
-    try {
-        const serializedDb = localStorage.getItem(DB_STORAGE_KEY);
-        if (serializedDb === null) {
-            return null;
-        }
-        return JSON.parse(serializedDb);
-    } catch (error) {
-        logger.error("Failed to load data from localStorage", { error });
-        return null;
-    }
-};
-
-const initializeDb = () => {
-    const loadedDb = _loadDb();
-    if (loadedDb) {
-        db = loadedDb;
-    } else {
-        // Initialize with default data if nothing in localStorage
-        logger.info('No data found in localStorage, initializing with default data.');
-        db = {
-            commissions: JSON.parse(JSON.stringify(initialCommissions)),
-            commissionDetails: JSON.parse(JSON.stringify(initialCommissionDetails)),
-            adminData: JSON.parse(JSON.stringify(initialAdminData)),
-        };
-        _saveDb();
-    }
-};
-
-initializeDb();
 
 const SIMULATED_DELAY = 200; // ms
 
@@ -72,39 +31,6 @@ export const getDayOfWeekCatalan = (dateString: string): string => {
     const days = ['diumenge', 'dilluns', 'dimarts', 'dimecres', 'dijous', 'divendres', 'dissabte'];
     return days[date.getDay()];
 };
-
-// --- Auth Functions ---
-
-export const login = async (email: string, password: string): Promise<User> => {
-    await delay();
-    const user = db.adminData.users.find(u => u.email === email && u.password === password);
-    if (user) {
-        const sessionUser: User = { id: user.id, name: user.name, email: user.email, role: user.role }; // Don't store password
-        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionUser));
-        return JSON.parse(JSON.stringify(sessionUser));
-    }
-    throw new Error("Credencials invàlides.");
-};
-
-export const logout = async (): Promise<void> => {
-    await delay();
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
-};
-
-export const getCurrentUser = async (): Promise<User | null> => {
-    await delay();
-    try {
-        const serializedUser = sessionStorage.getItem(SESSION_STORAGE_KEY);
-        if (serializedUser === null) {
-            return null;
-        }
-        return JSON.parse(serializedUser);
-    } catch (error) {
-        logger.error("Failed to load user from sessionStorage", { error });
-        return null;
-    }
-};
-
 
 // --- API Functions ---
 
@@ -164,13 +90,11 @@ export const saveCommissionDetails = async (updatedDetail: CommissionDetail): Pr
           ...summary, 
           numTemes: updatedDetail.expedients.length,
           dataComissio: updatedDetail.sessio,
-          // FIX: Cast 'updatedDetail.estat' to 'CommissionStatus' to resolve type mismatch between CommissionDetail (string) and CommissionSummary ('Oberta' | 'Finalitzada').
-          estat: updatedDetail.estat as CommissionStatus,
+          estat: updatedDetail.estat,
           diaSetmana: getDayOfWeekCatalan(updatedDetail.sessio),
         } : summary
       );
     
-    _saveDb();
     return JSON.parse(JSON.stringify(updatedDetail));
 };
 
@@ -188,7 +112,6 @@ export const updateCommissionSummary = async (numActa: number, dataComissio: str
         return c;
     });
     if (!updatedCommission) throw new Error("Commission not found");
-    _saveDb();
     return JSON.parse(JSON.stringify(updatedCommission));
 };
 
@@ -206,7 +129,6 @@ export const markCommissionAsSent = async (numActa: number, dataComissio: string
         return c;
     });
     if (!updatedCommission) throw new Error("Commission not found");
-    _saveDb();
     return JSON.parse(JSON.stringify(updatedCommission));
 };
 
@@ -254,7 +176,6 @@ export const generateNextYearCommissions = async (): Promise<CommissionSummary[]
         return dateA.getTime() - dateB.getTime();
     });
     
-    _saveDb();
     return JSON.parse(JSON.stringify(newCommissions));
 };
 
@@ -288,7 +209,6 @@ export const addCommission = async (commissionData: { dataComissio: string, numA
         return dateA.getTime() - dateB.getTime();
     });
 
-    _saveDb();
     return JSON.parse(JSON.stringify(newCommission));
 };
 
@@ -331,49 +251,15 @@ export const updateCommission = async (originalNumActa: number, originalDataComi
         detailToUpdate.sessio = updatedData.dataComissio;
     }
 
-    _saveDb();
     return JSON.parse(JSON.stringify(commissionToUpdate));
 };
 
-export const deleteCommission = async (numActa: number, dataComissio: string): Promise<DeletedCommissionPayload> => {
+export const deleteCommission = async (numActa: number, dataComissio: string): Promise<void> => {
     await delay();
     const year = dataComissio.split('/')[2];
     
-    const summaryToDelete = db.commissions.find(c => c.numActa === numActa && c.dataComissio === dataComissio);
-    if (!summaryToDelete) throw new Error("Commission summary not found for deletion");
-    
-    const detailToDelete = db.commissionDetails.find(d => d.numActa === numActa && d.sessio.endsWith(`/${year}`)) || null;
-
-    const payload: DeletedCommissionPayload = {
-        summary: JSON.parse(JSON.stringify(summaryToDelete)),
-        detail: detailToDelete ? JSON.parse(JSON.stringify(detailToDelete)) : null,
-    };
-    
     db.commissions = db.commissions.filter(c => !(c.numActa === numActa && c.dataComissio === dataComissio));
-    if (detailToDelete) {
-        db.commissionDetails = db.commissionDetails.filter(d => !(d.numActa === numActa && d.sessio.endsWith(`/${year}`)));
-    }
-    
-    _saveDb();
-    return payload;
-};
-
-export const restoreCommission = async (payload: DeletedCommissionPayload): Promise<void> => {
-    await delay();
-    db.commissions.push(payload.summary);
-     db.commissions.sort((a,b) => {
-        const [dayA, monthA, yearA] = a.dataComissio.split('/').map(Number);
-        const [dayB, monthB, yearB] = b.dataComissio.split('/').map(Number);
-        const dateA = new Date(yearA, monthA - 1, dayA);
-        const dateB = new Date(yearB, monthB - 1, dayB);
-        if(dateA.getTime() === dateB.getTime()) return a.numActa - b.numActa;
-        return dateA.getTime() - dateB.getTime();
-    });
-
-    if (payload.detail) {
-        db.commissionDetails.push(payload.detail);
-    }
-    _saveDb();
+    db.commissionDetails = db.commissionDetails.filter(d => !(d.numActa === numActa && d.sessio.endsWith(`/${year}`)));
 };
 
 
@@ -384,25 +270,14 @@ export const updateAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: 
     db.adminData[list] = adminList.map(item =>
         item.id === id ? { ...item, name, email } : item
     ) as any;
-    _saveDb();
     return { id, name, email };
 };
 
-export const deleteAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: string): Promise<AdminList> => {
+export const deleteAdminItem = async (list: keyof Omit<AdminData, 'users'>, id: string) => {
     await delay();
     const adminList = db.adminData[list] as AdminList[];
-    const itemToDelete = adminList.find(item => item.id === id);
-    if (!itemToDelete) throw new Error("Item not found for deletion");
-    
     db.adminData[list] = adminList.filter(item => item.id !== id) as any;
-    _saveDb();
-    return itemToDelete;
-};
-
-export const restoreAdminItem = async (list: keyof Omit<AdminData, 'users'>, item: AdminList): Promise<void> => {
-    await delay();
-    (db.adminData[list] as AdminList[]).push(item);
-    _saveDb();
+    return { success: true };
 };
 
 export const addAdminItem = async (list: keyof Omit<AdminData, 'users'>, name: string, email?: string) => {
@@ -413,15 +288,14 @@ export const addAdminItem = async (list: keyof Omit<AdminData, 'users'>, name: s
         email,
     };
     (db.adminData[list] as AdminList[]).push(newItem);
-    _saveDb();
     return JSON.parse(JSON.stringify(newItem));
 };
 
-export const updateUser = async (id: string, name: string, email: string, role: User['role'], password?: string) => {
+export const updateUser = async (id: string, name: string, email: string, password?: string) => {
     await delay();
     db.adminData.users = db.adminData.users.map(user => {
         if (user.id === id) {
-            const updatedUser: User = { ...user, name, email, role };
+            const updatedUser: User = { ...user, name, email };
             if (password) {
                 updatedUser.password = password;
             }
@@ -429,36 +303,24 @@ export const updateUser = async (id: string, name: string, email: string, role: 
         }
         return user;
     });
-    _saveDb();
-    return { id, name, email, role };
+    return { id, name, email };
 };
 
-export const deleteUser = async (id: string): Promise<User> => {
+export const deleteUser = async (id: string) => {
     await delay();
-    const userToDelete = db.adminData.users.find(user => user.id === id);
-    if (!userToDelete) throw new Error("User not found for deletion");
     db.adminData.users = db.adminData.users.filter(user => user.id !== id);
-    _saveDb();
-    return userToDelete;
+    return { success: true };
 };
 
-export const restoreUser = async (user: User): Promise<void> => {
-    await delay();
-    db.adminData.users.push(user);
-    _saveDb();
-};
-
-export const addUser = async (name: string, email: string, role: User['role'], password?: string) => {
+export const addUser = async (name: string, email: string, password?: string) => {
     await delay();
     const newUser: User = {
         id: `user-${Date.now()}`,
         name,
         email,
-        role,
         password,
     };
     db.adminData.users.push(newUser);
-    _saveDb();
     return JSON.parse(JSON.stringify(newUser));
 };
 
@@ -471,17 +333,15 @@ export const importUsers = async (importedUsers: User[]): Promise<User[]> => {
 
         const existingUser = usersMap.get(importedUser.id);
         if (existingUser) {
-            usersMap.set(importedUser.id, { ...existingUser, name: importedUser.name, email: importedUser.email, role: importedUser.role || 'viewer' });
+            usersMap.set(importedUser.id, { ...existingUser, name: importedUser.name, email: importedUser.email });
         } else {
             usersMap.set(importedUser.id, {
                 ...importedUser,
-                password: 'changeme123',
-                role: importedUser.role || 'viewer',
+                password: 'changeme123'
             });
         }
     });
 
     db.adminData.users = Array.from(usersMap.values());
-    _saveDb();
     return JSON.parse(JSON.stringify(db.adminData.users));
 };
