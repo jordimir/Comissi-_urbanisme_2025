@@ -1,0 +1,47 @@
+{
+  "procediments": [
+    { "id": "p1", "name": "Llicència d'obres menors" },
+    { "id": "p2", "name": "Primera Ocupació" },
+    { "id": "p3", "name": "Comunicació prèvia tipus 1 Obra Menor" },
+    { "id": "p4", "name": "Obres Majors" },
+    { "id": "p5", "name": "Ocupació via pública" },
+    { "id": "p6", "name": "Agrupació/Segregació de parcel·les/solars" },
+    { "id": "p7", "name": "Comunicació prèvia tipus 2 Obra Menor" },
+    { "id": "p8", "name": "Divisió horitzontal" },
+    { "id": "p9", "name": "Fiances" },
+    { "id": "p10", "name": "Pròrroga" },
+    { "id": "p11", "name": "Informes interns" }
+  ],
+  "sentitInformes": [
+    { "id": "s1", "name": "Favorable" },
+    { "id": "s2", "name": "Desfavorable" },
+    { "id": "s3", "name": "Favorable condicionat (mixte)" },
+    { "id": "s4", "name": "Posar en consideració" },
+    { "id": "s5", "name": "Caducat/Arxivat" },
+    { "id": "s6", "name": "Requeriment" }
+  ],
+  "tecnics": [
+    { "id": "t-sg", "name": "Secretari General", "email": "sg@tossa.cat" },
+    { "id": "t-em", "name": "Josep Almató", "email": "jalmato@tossa.cat" },
+    { "id": "t-tma", "name": "Jordi Couso", "email": "jcouso@tossa.cat" },
+    { "id": "t-am", "name": "Gonzalo Alcaraz", "email": "galcaraz@tossa.cat" },
+    { "id": "t1", "name": "Claudia Carvajal", "email": "ccarvajal@tossa.cat" },
+    { "id": "t-at", "name": "Cristina Atalaya", "email": "catalaya@tossa.cat" },
+    { "id": "t-pc", "name": "Patricia Clofent", "email": "pclofent@tossa.cat" }
+  ],
+  "departaments": [
+    { "id": "d1", "name": "Urbanisme" },
+    { "id": "d2", "name": "Medi Ambient" },
+    { "id": "d4", "name": "Secretaria" }
+  ],
+  "regidors": [
+      { "id": "r1", "name": "Ramon Gascons", "email": "rgascons@tossa.cat"},
+      { "id": "r2", "name": "Andrea Nadal", "email": "anadal@tossa.cat"},
+      { "id": "r3", "name": "Eva Barnés", "email": "ebarnes@tossa.cat"}
+  ],
+  "users": [
+    { "id": "user-master", "name": "Admin Master", "email": "admin@tossa.cat", "password": "masterpassword", "role": "admin" },
+    { "id": "user-1", "name": "Enginyer/a municipal", "email": "em@tossa.cat", "password": "password123", "role": "editor" },
+    { "id": "user-2", "name": "Consultor/a", "email": "viewer@tossa.cat", "password": "password123", "role": "viewer" }
+  ]
+}
